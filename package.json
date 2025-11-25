@@ -23,6 +23,7 @@
     "pm2:status": "pm2 status",
     "pm2:monit": "pm2 monit",
     "pm2:flush": "pm2 flush",
+    "pub": "npm run build && pm2 restart ecosystem.config.cjs --update-env",
     "deploy": "npm run build && pm2 reload ecosystem.config.cjs --env production --update-env",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
