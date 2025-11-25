@@ -216,18 +216,23 @@ export function EnhancedQueue({
   // Scroll to active track when it changes (single source of truth for scrolling)
   useEffect(() => {
     if (currentTrack && queueListRef.current) {
-      const activeItem = queueListRef.current.querySelector(
-        `[data-track-id="${currentTrack.id}"]`
-      );
-      if (activeItem) {
-        // Use requestAnimationFrame for better timing, ensuring DOM is ready
-        requestAnimationFrame(() => {
+      const trackId = currentTrack.id;
+      // Use requestAnimationFrame for better timing, ensuring DOM is ready
+      // Query inside callback to avoid stale references
+      requestAnimationFrame(() => {
+        // Re-query to ensure element is still in DOM and matches current track
+        if (!queueListRef.current) return;
+        const activeItem = queueListRef.current.querySelector(
+          `[data-track-id="${trackId}"]`
+        );
+        // Verify element is still connected to DOM
+        if (activeItem && activeItem.isConnected) {
           activeItem.scrollIntoView({
             behavior: "smooth",
             block: "center",
           });
-        });
-      }
+        }
+      });
     }
   }, [currentTrack, queue]);
 
