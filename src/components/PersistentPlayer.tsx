@@ -13,6 +13,7 @@ import { getCoverImage } from "@/utils/images";
 import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
+import { useAudioReactiveBackground } from "@/hooks/useAudioReactiveBackground";
 import MaturePlayer from "./Player";
 
 // Dynamic imports to prevent SSR issues with Web Audio API
@@ -74,6 +75,9 @@ export default function PersistentPlayer() {
       setVisualizerEnabled(stored === "true");
     }
   }, [isAuthenticated]);
+
+  // Audio-reactive background effects
+  useAudioReactiveBackground(player.audioElement, player.isPlaying);
 
   // Extract colors from album art when track changes
   useEffect(() => {
@@ -209,8 +213,8 @@ export default function PersistentPlayer() {
         />
       )}
 
-      {/* Audio Visualizer - Draggable on Desktop, small by default, with album colors */}
-      {player.audioElement && player.currentTrack && visualizerEnabled && !isMobile && (
+      {/* Audio Visualizer - DISABLED */}
+      {/* {player.audioElement && player.currentTrack && visualizerEnabled && !isMobile && (
         <AudioVisualizer
           audioElement={player.audioElement}
           isPlaying={player.isPlaying}
@@ -229,7 +233,7 @@ export default function PersistentPlayer() {
           blendWithBackground={true}
           ensureVisibleSignal={visualizerEnsureToken}
         />
-      )}
+      )} */}
     </>
   );
 }

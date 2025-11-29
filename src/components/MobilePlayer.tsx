@@ -4,6 +4,7 @@
 
 import { PLAYBACK_RATES } from "@/config/player";
 import { useGlobalPlayer } from "@/contexts/AudioPlayerContext";
+import { useAudioReactiveBackground } from "@/hooks/useAudioReactiveBackground";
 import type { Track } from "@/types";
 import { extractColorsFromImage, type ColorPalette } from "@/utils/colorExtractor";
 import { hapticLight, hapticMedium } from "@/utils/haptics";
@@ -186,6 +187,9 @@ export default function MobilePlayer(props: MobilePlayerProps) {
       }
     }
   }, [contextAudioElement]);
+
+  // Audio-reactive background effects
+  useAudioReactiveBackground(audioElement, isPlaying);
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
   const displayTime = isSeeking ? seekTime : currentTime;
@@ -514,8 +518,8 @@ export default function MobilePlayer(props: MobilePlayerProps) {
                       </div>
                     ) : null}
 
-                    {/* Visualizer */}
-                    {showVisualizer && audioElement && (
+                    {/* Visualizer - DISABLED */}
+                    {/* {showVisualizer && audioElement && (
                       <div className="aspect-square w-full overflow-hidden rounded-3xl bg-[rgba(0,0,0,0.3)]">
                         <AudioVisualizer
                           audioElement={audioElement}
@@ -528,7 +532,7 @@ export default function MobilePlayer(props: MobilePlayerProps) {
                           blendWithBackground={true}
                         />
                       </div>
-                    )}
+                    )} */}
 
                     {/* Seek Indicator Overlay */}
                     <AnimatePresence>
