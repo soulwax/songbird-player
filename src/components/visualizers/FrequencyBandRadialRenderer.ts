@@ -43,8 +43,9 @@ export class FrequencyBandRadialRenderer {
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
       const maxRadius = Math.min(canvas.width, canvas.height) / 2;
-      const avgIntensity = audioAnalysis.frequencyBands.bass + audioAnalysis.frequencyBands.mid + audioAnalysis.frequencyBands.treble;
-      const hueShift = (avgIntensity / 3) * 45;
+      // Frequency bands are already normalized to 0-1 range
+      const avgIntensity = (audioAnalysis.frequencyBands.bass + audioAnalysis.frequencyBands.mid + audioAnalysis.frequencyBands.treble) / 3;
+      const hueShift = Math.min(60, avgIntensity * 45); // Clamp to max 60 degrees
 
       const bgGradient = ctx.createRadialGradient(
         centerX,

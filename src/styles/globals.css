@@ -35,7 +35,9 @@
   --audio-intensity: 0;
   --audio-bass: 0;
   --audio-energy: 0;
+  --audio-treble: 0;
   --audio-hue: 0;
+  --audio-strobe: 0;
 }
 
 html {
@@ -55,36 +57,42 @@ html::before {
   background: 
     /* Base deep dark */
     #0a0a0f,
-    /* Subtle red-orange apparitions - more refined */
-    radial-gradient(ellipse 150% 100% at 10% 30%, 
-      rgba(200, 50, 30, calc(0.15 + var(--audio-intensity) * 0.12)) 0%, 
+    /* Disco light 1 - Red/Orange spot (top left) */
+    radial-gradient(ellipse 180% 120% at 10% 20%, 
+      hsla(calc(var(--audio-hue) + 0), 100%, calc(50% + var(--audio-intensity) * 30%), calc(0.4 + var(--audio-intensity) * 0.5 + var(--audio-strobe) * 0.3)) 0%, 
+      transparent 45%),
+    /* Disco light 2 - Blue/Purple spot (top right) */
+    radial-gradient(ellipse 160% 110% at 90% 15%, 
+      hsla(calc(var(--audio-hue) + 180), 100%, calc(50% + var(--audio-treble) * 35%), calc(0.35 + var(--audio-treble) * 0.5 + var(--audio-strobe) * 0.3)) 0%, 
       transparent 50%),
-    radial-gradient(ellipse 120% 80% at 90% 20%, 
-      rgba(220, 80, 40, calc(0.12 + var(--audio-intensity) * 0.1)) 0%, 
+    /* Disco light 3 - Yellow/Green spot (bottom left) */
+    radial-gradient(ellipse 150% 130% at 15% 80%, 
+      hsla(calc(var(--audio-hue) + 60), 100%, calc(55% + var(--audio-energy) * 30%), calc(0.3 + var(--audio-energy) * 0.4)) 0%, 
       transparent 55%),
-    /* Gentle amber whispers - subtle bass response */
-    radial-gradient(circle 80% at 25% 70%, 
-      rgba(244, 178, 102, calc(0.12 + var(--audio-bass) * 0.15)) 0%, 
-      transparent 60%),
-    radial-gradient(circle 100% at 75% 80%, 
-      rgba(255, 200, 120, calc(0.08 + var(--audio-energy) * 0.12)) 0%, 
-      transparent 65%),
-    /* Soft purple shadows - gentle treble response */
-    radial-gradient(ellipse 140% 90% at 50% 50%, 
-      rgba(100, 30, 80, calc(0.1 + var(--audio-energy) * 0.1)) 0%, 
-      transparent 70%),
-    /* Delicate crimson layers - refined intensity */
-    radial-gradient(ellipse 110% 120% at 60% 10%, 
-      rgba(180, 40, 50, calc(0.08 + var(--audio-intensity) * 0.12)) 0%, 
+    /* Disco light 4 - Pink/Magenta spot (bottom right) */
+    radial-gradient(ellipse 170% 140% at 85% 75%, 
+      hsla(calc(var(--audio-hue) + 300), 100%, calc(50% + var(--audio-bass) * 30%), calc(0.35 + var(--audio-bass) * 0.45)) 0%, 
       transparent 50%),
-    /* Soft orange glow - subtle bass reactive */
-    radial-gradient(circle 90% at 40% 40%, 
-      rgba(255, 140, 60, calc(0.06 + var(--audio-bass) * 0.15)) 0%, 
-      transparent 55%);
+    /* Disco light 5 - Cyan/Blue center */
+    radial-gradient(circle 120% at 50% 50%, 
+      hsla(calc(var(--audio-hue) + 200), 100%, calc(55% + var(--audio-energy) * 25%), calc(0.25 + var(--audio-energy) * 0.35)) 0%, 
+      transparent 60%),
+    /* Disco light 6 - Orange/Red (center left) */
+    radial-gradient(ellipse 140% 100% at 30% 50%, 
+      hsla(calc(var(--audio-hue) + 20), 100%, calc(50% + var(--audio-bass) * 30%), calc(0.3 + var(--audio-bass) * 0.4)) 0%, 
+      transparent 55%),
+    /* Disco light 7 - Purple/Violet (center right) */
+    radial-gradient(ellipse 130% 110% at 70% 45%, 
+      hsla(calc(var(--audio-hue) + 250), 100%, calc(50% + var(--audio-treble) * 30%), calc(0.3 + var(--audio-treble) * 0.4)) 0%, 
+      transparent 50%),
+    /* Disco light 8 - Green/Yellow (top center) */
+    radial-gradient(ellipse 150% 100% at 50% 10%, 
+      hsla(calc(var(--audio-hue) + 100), 100%, calc(55% + var(--audio-energy) * 30%), calc(0.25 + var(--audio-energy) * 0.35)) 0%, 
+      transparent 60%);
   background-attachment: fixed;
-  animation: toreadorFlow calc(25s - var(--audio-energy) * 3s) ease-in-out infinite;
-  filter: hue-rotate(calc(var(--audio-hue) * 0.05deg));
-  transition: filter 0.5s ease;
+  animation: discoFlow calc(8s - var(--audio-energy) * 2s) ease-in-out infinite;
+  filter: hue-rotate(calc(var(--audio-hue) * 0.3deg)) brightness(calc(1 + var(--audio-strobe) * 0.5));
+  transition: filter 0.1s ease, brightness 0.05s ease;
 }
 
 html::after {
@@ -92,40 +100,43 @@ html::after {
   position: fixed;
   inset: 0;
   z-index: -2;
-  opacity: calc(0.25 + var(--audio-energy) * 0.15);
+  opacity: calc(0.6 + var(--audio-energy) * 0.4 + var(--audio-strobe) * 0.3);
   background-image: 
-    /* Subtle flowing curves - refined movement */
+    /* Disco pattern 1 - Fast moving stripes */
     repeating-linear-gradient(
       45deg,
       transparent,
-      transparent 2px,
-      rgba(200, 50, 30, calc(0.015 + var(--audio-intensity) * 0.02)) 2px,
-      rgba(200, 50, 30, calc(0.015 + var(--audio-intensity) * 0.02)) 4px
+      transparent 3px,
+      hsla(calc(var(--audio-hue) + 0), 100%, 60%, calc(0.15 + var(--audio-intensity) * 0.25 + var(--audio-strobe) * 0.2)) 3px,
+      hsla(calc(var(--audio-hue) + 0), 100%, 60%, calc(0.15 + var(--audio-intensity) * 0.25 + var(--audio-strobe) * 0.2)) 6px
     ),
+    /* Disco pattern 2 - Cross stripes */
     repeating-linear-gradient(
       -45deg,
       transparent,
-      transparent 3px,
-      rgba(244, 178, 102, calc(0.01 + var(--audio-bass) * 0.015)) 3px,
-      rgba(244, 178, 102, calc(0.01 + var(--audio-bass) * 0.015)) 6px
+      transparent 4px,
+      hsla(calc(var(--audio-hue) + 120), 100%, 65%, calc(0.12 + var(--audio-bass) * 0.2 + var(--audio-strobe) * 0.15)) 4px,
+      hsla(calc(var(--audio-hue) + 120), 100%, 65%, calc(0.12 + var(--audio-bass) * 0.2 + var(--audio-strobe) * 0.15)) 8px
     ),
-    /* Gentle geometric patterns - subtle energy reactive */
+    /* Disco pattern 3 - Rotating conic gradient */
     repeating-conic-gradient(
-      from 0deg at 50% 50%,
+      from calc(var(--audio-hue) * 1deg) at 50% 50%,
       transparent 0deg,
-      rgba(180, 40, 50, calc(0.02 + var(--audio-energy) * 0.02)) 15deg,
-      transparent 30deg,
-      rgba(255, 200, 120, calc(0.015 + var(--audio-energy) * 0.02)) 45deg,
-      transparent 60deg
+      hsla(calc(var(--audio-hue) + 180), 100%, 70%, calc(0.2 + var(--audio-energy) * 0.3 + var(--audio-strobe) * 0.25)) 20deg,
+      transparent 40deg,
+      hsla(calc(var(--audio-hue) + 60), 100%, 65%, calc(0.18 + var(--audio-treble) * 0.25 + var(--audio-strobe) * 0.2)) 60deg,
+      transparent 80deg,
+      hsla(calc(var(--audio-hue) + 240), 100%, 70%, calc(0.2 + var(--audio-bass) * 0.3 + var(--audio-strobe) * 0.25)) 100deg,
+      transparent 120deg
     );
-  background-size: calc(200% + var(--audio-energy) * 30%) calc(200% + var(--audio-energy) * 30%), 
-                   calc(300% + var(--audio-energy) * 30%) calc(300% + var(--audio-energy) * 30%), 
-                   calc(400% + var(--audio-energy) * 30%) calc(400% + var(--audio-energy) * 30%);
+  background-size: calc(150% + var(--audio-energy) * 50%) calc(150% + var(--audio-energy) * 50%), 
+                   calc(200% + var(--audio-energy) * 50%) calc(200% + var(--audio-energy) * 50%), 
+                   calc(300% + var(--audio-energy) * 50%) calc(300% + var(--audio-energy) * 50%);
   background-position: 0% 0%, 50% 50%, 25% 25%;
-  animation: toreadorPattern calc(30s - var(--audio-energy) * 5s) linear infinite;
+  animation: discoPattern calc(5s - var(--audio-energy) * 1.5s) linear infinite;
   pointer-events: none;
-  filter: hue-rotate(calc(var(--audio-hue) * 0.08deg));
-  transition: opacity 0.4s ease, filter 0.4s ease;
+  filter: hue-rotate(calc(var(--audio-hue) * 0.2deg)) brightness(calc(1 + var(--audio-strobe) * 0.4));
+  transition: opacity 0.1s ease, filter 0.05s ease;
 }
 
 body {
@@ -133,20 +144,22 @@ body {
   color: var(--color-text);
   position: relative;
   background: 
-    /* Layered depth - subtle audio reactive */
-    radial-gradient(ellipse 180% 120% at 20% -10%, 
-      rgba(200, 50, 30, calc(0.08 + var(--audio-intensity) * 0.12)) 0%, 
-      transparent 60%),
-    radial-gradient(ellipse 160% 100% at 80% 0%, 
-      rgba(220, 80, 40, calc(0.06 + var(--audio-energy) * 0.1)) 0%, 
+    /* Disco floor light 1 - Red/Orange */
+    radial-gradient(ellipse 200% 140% at 20% -5%, 
+      hsla(calc(var(--audio-hue) + 0), 100%, calc(55% + var(--audio-intensity) * 25%), calc(0.3 + var(--audio-intensity) * 0.4 + var(--audio-strobe) * 0.25)) 0%, 
       transparent 55%),
-    radial-gradient(circle 100% at 50% 100%, 
-      rgba(100, 30, 80, calc(0.09 + var(--audio-energy) * 0.12)) 0%, 
-      transparent 70%),
-    /* Central subtle focus - refined intensity */
-    radial-gradient(ellipse 200% 150% at 50% 50%, 
-      rgba(180, 40, 50, calc(0.04 + var(--audio-intensity) * 0.15)) 0%, 
-      transparent 80%),
+    /* Disco floor light 2 - Blue/Purple */
+    radial-gradient(ellipse 190% 130% at 80% 0%, 
+      hsla(calc(var(--audio-hue) + 180), 100%, calc(50% + var(--audio-treble) * 30%), calc(0.25 + var(--audio-treble) * 0.35 + var(--audio-strobe) * 0.2)) 0%, 
+      transparent 60%),
+    /* Disco floor light 3 - Green/Yellow */
+    radial-gradient(circle 120% at 50% 100%, 
+      hsla(calc(var(--audio-hue) + 120), 100%, calc(55% + var(--audio-energy) * 30%), calc(0.3 + var(--audio-energy) * 0.4 + var(--audio-strobe) * 0.25)) 0%, 
+      transparent 65%),
+    /* Disco floor light 4 - Pink/Magenta center */
+    radial-gradient(ellipse 220% 160% at 50% 50%, 
+      hsla(calc(var(--audio-hue) + 300), 100%, calc(50% + var(--audio-bass) * 35%), calc(0.2 + var(--audio-bass) * 0.3 + var(--audio-strobe) * 0.2)) 0%, 
+      transparent 75%),
     /* Base */
     #0a0a0f;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
@@ -158,7 +171,7 @@ body {
   /* Enable smooth scrolling on iOS */
   -webkit-overflow-scrolling: touch;
   min-height: 100vh;
-  transition: background 0.4s ease;
+  transition: background 0.1s ease;
 }
 
 body::before {
@@ -167,83 +180,116 @@ body::before {
   inset: 0;
   z-index: -1;
   background: 
-    /* Flowing cape-like shapes - subtle with audio */
+    /* Disco spinning light 1 - Fast rotation */
     conic-gradient(
-      from 0deg at 20% 30%,
+      from calc(var(--audio-hue) * 2deg) at 25% 35%,
       transparent 0deg,
-      rgba(244, 178, 102, calc(0.03 + var(--audio-bass) * 0.06)) 60deg,
-      transparent 120deg,
-      rgba(200, 50, 30, calc(0.025 + var(--audio-intensity) * 0.05)) 180deg,
-      transparent 240deg,
-      rgba(255, 200, 120, calc(0.02 + var(--audio-energy) * 0.04)) 300deg,
+      hsla(calc(var(--audio-hue) + 0), 100%, 70%, calc(0.4 + var(--audio-bass) * 0.5 + var(--audio-strobe) * 0.3)) 45deg,
+      transparent 90deg,
+      hsla(calc(var(--audio-hue) + 180), 100%, 65%, calc(0.35 + var(--audio-intensity) * 0.45 + var(--audio-strobe) * 0.3)) 135deg,
+      transparent 180deg,
+      hsla(calc(var(--audio-hue) + 60), 100%, 70%, calc(0.4 + var(--audio-energy) * 0.5 + var(--audio-strobe) * 0.3)) 225deg,
+      transparent 270deg,
+      hsla(calc(var(--audio-hue) + 240), 100%, 65%, calc(0.35 + var(--audio-treble) * 0.45 + var(--audio-strobe) * 0.3)) 315deg,
       transparent 360deg
     ),
+    /* Disco spinning light 2 - Counter rotation */
     conic-gradient(
-      from 180deg at 80% 70%,
+      from calc(var(--audio-hue) * -1.5deg) at 75% 65%,
       transparent 0deg,
-      rgba(180, 40, 50, calc(0.025 + var(--audio-intensity) * 0.05)) 90deg,
-      transparent 180deg,
-      rgba(220, 80, 40, calc(0.02 + var(--audio-energy) * 0.04)) 270deg,
+      hsla(calc(var(--audio-hue) + 120), 100%, 70%, calc(0.35 + var(--audio-bass) * 0.45 + var(--audio-strobe) * 0.3)) 60deg,
+      transparent 120deg,
+      hsla(calc(var(--audio-hue) + 300), 100%, 65%, calc(0.4 + var(--audio-intensity) * 0.5 + var(--audio-strobe) * 0.3)) 180deg,
+      transparent 240deg,
+      hsla(calc(var(--audio-hue) + 200), 100%, 70%, calc(0.35 + var(--audio-energy) * 0.45 + var(--audio-strobe) * 0.3)) 300deg,
       transparent 360deg
     );
-  background-size: calc(150% + var(--audio-energy) * 20%) calc(150% + var(--audio-energy) * 20%), 
-                   calc(200% + var(--audio-energy) * 25%) calc(200% + var(--audio-energy) * 25%);
+  background-size: calc(180% + var(--audio-energy) * 40%) calc(180% + var(--audio-energy) * 40%), 
+                   calc(220% + var(--audio-energy) * 50%) calc(220% + var(--audio-energy) * 50%);
   background-position: center, center;
-  animation: toreadorCape calc(20s - var(--audio-energy) * 4s) ease-in-out infinite;
-  opacity: calc(0.3 + var(--audio-energy) * 0.15);
+  animation: discoSpin calc(6s - var(--audio-energy) * 1.5s) linear infinite;
+  opacity: calc(0.7 + var(--audio-energy) * 0.3 + var(--audio-strobe) * 0.2);
   pointer-events: none;
-  mix-blend-mode: overlay;
-  filter: hue-rotate(calc(var(--audio-hue) * 0.1deg));
-  transition: opacity 0.4s ease, filter 0.4s ease;
+  mix-blend-mode: screen;
+  filter: hue-rotate(calc(var(--audio-hue) * 0.25deg)) brightness(calc(1 + var(--audio-strobe) * 0.6));
+  transition: opacity 0.1s ease, filter 0.05s ease;
 }
 
-@keyframes toreadorFlow {
+@keyframes discoFlow {
   0%, 100% {
-    background-position: 0% 0%, 100% 0%, 0% 100%, 100% 100%, 50% 50%, 50% 0%, 50% 50%;
-    filter: hue-rotate(0deg);
+    background-position: 0% 0%, 100% 0%, 0% 100%, 100% 100%, 50% 50%, 30% 50%, 70% 45%, 50% 10%;
+    filter: hue-rotate(0deg) brightness(1);
   }
-  33% {
-    background-position: 10% 20%, 90% 10%, 20% 80%, 80% 90%, 40% 60%, 60% 20%, 40% 60%;
-    filter: hue-rotate(5deg);
-  }
-  66% {
-    background-position: -10% 10%, 110% 20%, 10% 90%, 90% 80%, 60% 40%, 40% 10%, 60% 40%;
-    filter: hue-rotate(-5deg);
-  }
-}
-
-@keyframes toreadorPattern {
-  0% {
-    background-position: 0% 0%, 50% 50%, 25% 25%;
-    transform: rotate(0deg);
+  25% {
+    background-position: 15% 25%, 85% 20%, 20% 75%, 80% 70%, 45% 55%, 25% 45%, 75% 50%, 55% 15%;
+    filter: hue-rotate(15deg) brightness(1.1);
   }
   50% {
-    background-position: 100% 100%, 0% 0%, 75% 75%;
-    transform: rotate(180deg);
+    background-position: -10% 15%, 110% 25%, 10% 85%, 90% 80%, 55% 45%, 35% 55%, 65% 40%, 45% 5%;
+    filter: hue-rotate(-10deg) brightness(1.2);
+  }
+  75% {
+    background-position: 20% 10%, 80% 30%, 25% 90%, 75% 65%, 50% 60%, 40% 50%, 60% 50%, 50% 20%;
+    filter: hue-rotate(20deg) brightness(1.15);
+  }
+}
+
+@keyframes discoPattern {
+  0% {
+    background-position: 0% 0%, 50% 50%, 25% 25%;
+    transform: rotate(0deg) scale(1);
+  }
+  33% {
+    background-position: 100% 50%, 0% 0%, 75% 75%;
+    transform: rotate(120deg) scale(1.1);
+  }
+  66% {
+    background-position: 50% 100%, 100% 100%, 0% 0%;
+    transform: rotate(240deg) scale(0.9);
   }
   100% {
     background-position: 0% 0%, 50% 50%, 25% 25%;
-    transform: rotate(360deg);
+    transform: rotate(360deg) scale(1);
   }
 }
 
-@keyframes toreadorCape {
-  0%, 100% {
+@keyframes discoSpin {
+  0% {
     transform: rotate(0deg) scale(1);
-    opacity: 0.5;
+    opacity: 0.7;
   }
   25% {
-    transform: rotate(5deg) scale(1.05);
-    opacity: 0.6;
+    transform: rotate(90deg) scale(1.15);
+    opacity: 0.9;
   }
   50% {
-    transform: rotate(0deg) scale(1.1);
-    opacity: 0.55;
+    transform: rotate(180deg) scale(1.1);
+    opacity: 0.8;
   }
   75% {
-    transform: rotate(-5deg) scale(1.05);
-    opacity: 0.6;
+    transform: rotate(270deg) scale(1.2);
+    opacity: 1;
   }
+  100% {
+    transform: rotate(360deg) scale(1);
+    opacity: 0.7;
+  }
+}
+
+/* Disco strobe overlay - flashes on bass hits */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: 
+    radial-gradient(circle at 50% 50%, 
+      rgba(255, 255, 255, calc(var(--audio-strobe) * 0.4)) 0%, 
+      transparent 70%);
+  pointer-events: none;
+  opacity: var(--audio-strobe);
+  transition: opacity 0.05s ease;
+  mix-blend-mode: screen;
 }
 
 ::selection {
@@ -1477,15 +1523,15 @@ img {
 
 @keyframes lightweight-particle-float {
   0% {
-    transform: translate(0, 0) scale(var(--start-scale));
+    transform: translate(0, 0) scale(var(--start-scale, 0.7));
     opacity: 0.3;
   }
   50% {
-    transform: translate(var(--float-x), var(--float-y)) scale(1);
+    transform: translate(var(--float-x, 0px), var(--float-y, 0px)) scale(1);
     opacity: 0.6;
   }
   100% {
-    transform: translate(calc(var(--float-x) * 2), calc(var(--float-y) * 2)) scale(var(--end-scale)));
+    transform: translate(calc(var(--float-x, 0px) * 2), calc(var(--float-y, 0px) * 2)) scale(var(--end-scale, 1));
     opacity: 0;
   }
 }

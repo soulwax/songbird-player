@@ -31,8 +31,9 @@ export class FrequencyBandLayeredRenderer {
       this.time += 0.02;
 
       // Vibrant gradient background
-      const avgIntensity = audioAnalysis.frequencyBands.bass + audioAnalysis.frequencyBands.mid + audioAnalysis.frequencyBands.treble;
-      const hueShift = (avgIntensity / 3) * 40;
+      // Frequency bands are already normalized to 0-1 range
+      const avgIntensity = (audioAnalysis.frequencyBands.bass + audioAnalysis.frequencyBands.mid + audioAnalysis.frequencyBands.treble) / 3;
+      const hueShift = Math.min(60, avgIntensity * 40); // Clamp to max 60 degrees
       const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
       bgGradient.addColorStop(0, `hsla(${265 + hueShift}, 75%, 22%, 0.92)`);
       bgGradient.addColorStop(1, `hsla(${245 + hueShift}, 70%, 15%, 1)`);

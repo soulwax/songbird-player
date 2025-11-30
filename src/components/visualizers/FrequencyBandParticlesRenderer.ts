@@ -58,8 +58,9 @@ export class FrequencyBandParticlesRenderer {
       this.time += 0.02;
 
       // Vibrant gradient background
-      const avgIntensity = audioAnalysis.frequencyBands.bass + audioAnalysis.frequencyBands.mid + audioAnalysis.frequencyBands.treble;
-      const hueShift = (avgIntensity / 3) * 50;
+      // Frequency bands are already normalized to 0-1 range
+      const avgIntensity = (audioAnalysis.frequencyBands.bass + audioAnalysis.frequencyBands.mid + audioAnalysis.frequencyBands.treble) / 3;
+      const hueShift = Math.min(60, avgIntensity * 50); // Clamp to max 60 degrees
       const bgGradient = ctx.createRadialGradient(
         canvas.width / 2,
         canvas.height / 2,
