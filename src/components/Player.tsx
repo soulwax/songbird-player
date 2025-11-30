@@ -110,6 +110,7 @@ export default function MaturePlayer({
     onSeekBackward: onSkipBackward,
     onToggleShuffle,
     onToggleRepeat: onCycleRepeat,
+    onToggleVisualizer: onToggleVisualizer,
   });
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {

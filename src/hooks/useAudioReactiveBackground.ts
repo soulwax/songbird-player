@@ -11,7 +11,8 @@ import { useEffect, useRef } from "react";
  */
 export function useAudioReactiveBackground(
   audioElement: HTMLAudioElement | null,
-  isPlaying: boolean
+  isPlaying: boolean,
+  enabled = true
 ) {
   const visualizer = useAudioVisualizer(audioElement, {
     fftSize: 256,
@@ -30,12 +31,14 @@ export function useAudioReactiveBackground(
   const previousAnalysisRef = useRef<{ overallVolume: number; bass: number } | null>(null);
 
   useEffect(() => {
-    if (!isPlaying || !isInitialized || !audioElement) {
-      // Reset to default when not playing
+    if (!enabled || !isPlaying || !isInitialized || !audioElement) {
+      // Reset to default when not playing or disabled
       document.documentElement.style.setProperty("--audio-intensity", "0");
       document.documentElement.style.setProperty("--audio-bass", "0");
       document.documentElement.style.setProperty("--audio-energy", "0");
+      document.documentElement.style.setProperty("--audio-treble", "0");
       document.documentElement.style.setProperty("--audio-hue", "0");
+      document.documentElement.style.setProperty("--audio-strobe", "0");
       
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -75,13 +78,14 @@ export function useAudioReactiveBackground(
 
       previousAnalysisRef.current = { overallVolume, bass };
 
-      // Calculate intensity (0-1) - more subtle effects
-      const intensity = Math.min(1, overallVolume * 0.8);
-      const bassBoost = Math.min(1, bass * 0.9);
-      const energy = Math.min(1, (overallVolume + bass) * 0.7);
+      // Calculate intensity (0-1) - disco lightshow effects
+      const intensity = Math.min(1, overallVolume * 1.2);
+      const bassBoost = Math.min(1, bass * 1.3);
+      const energy = Math.min(1, (overallVolume + bass) * 1.1);
+      const trebleBoost = Math.min(1, analysis.frequencyBands.treble * 1.2);
 
-      // Calculate hue shift based on frequency bands - more subtle
-      // Bass = red/orange, Mid = yellow/gold, Treble = purple/blue
+      // Calculate hue shift based on frequency bands - disco color cycling
+      // Bass = red/orange, Mid = yellow/green, Treble = blue/purple/pink
       const bassWeight = analysis.frequencyBands.bass;
       const midWeight = analysis.frequencyBands.mid;
       const trebleWeight = analysis.frequencyBands.treble;
@@ -92,15 +96,28 @@ export function useAudioReactiveBackground(
       const normalizedMid = total > 0 ? midWeight / total : 0;
       const normalizedTreble = total > 0 ? trebleWeight / total : 0;
       
-      // Hue range: 0-60 (red-orange-yellow) for bass/mid, 240-300 (purple-pink) for treble
-      // More subtle hue shifts
-      const hue = normalizedBass * 10 + normalizedMid * 30 + normalizedTreble * 250;
+      // Kaleidoscope hue range: Wider separation for more distinct colors
+      // Bass = red-orange (0-60), Mid = yellow-green-cyan (60-180), Treble = blue-purple-pink (180-360)
+      const hue = normalizedBass * 60 + normalizedMid * 120 + normalizedTreble * 180;
+      
+      // Add time-based color cycling for kaleidoscope effect (use performance.now() for better accuracy)
+      // Only update when tab is visible to save resources
+      // Increased multiplier for faster, more dramatic color shifts
+      const timeHue = typeof window !== "undefined" && !document.hidden
+        ? (performance.now() / 40) % 360
+        : 0;
+      const discoHue = (hue + timeHue * 0.5) % 360;
 
-      // Update CSS variables with more subtle values
+      // Strobe effect based on bass hits (reduced intensity for safety)
+      const strobe = bass > 0.7 ? 0.7 : 0;
+
+      // Update CSS variables with disco lightshow values
       document.documentElement.style.setProperty("--audio-intensity", intensity.toString());
       document.documentElement.style.setProperty("--audio-bass", bassBoost.toString());
       document.documentElement.style.setProperty("--audio-energy", energy.toString());
-      document.documentElement.style.setProperty("--audio-hue", hue.toString());
+      document.documentElement.style.setProperty("--audio-treble", trebleBoost.toString());
+      document.documentElement.style.setProperty("--audio-hue", discoHue.toString());
+      document.documentElement.style.setProperty("--audio-strobe", strobe.toString());
 
       animationFrameRef.current = requestAnimationFrame(updateBackground);
     };
@@ -123,6 +140,6 @@ export function useAudioReactiveBackground(
         animationFrameRef.current = null;
       }
     };
-  }, [isPlaying, isInitialized, audioElement, getFrequencyData, audioContext, getFFTSize, initialize, resumeContext]);
+  }, [enabled, isPlaying, isInitialized, audioElement, getFrequencyData, audioContext, getFFTSize, initialize, resumeContext]);
 }
 

@@ -15,6 +15,7 @@ interface KeyboardShortcutHandlers {
   onSeekBackward?: () => void;
   onToggleShuffle?: () => void;
   onToggleRepeat?: () => void;
+  onToggleVisualizer?: () => void;
 }
 
 export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers) {
@@ -116,6 +117,13 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers) {
       if (e.code === "KeyR") {
         e.preventDefault();
         handlers.onToggleRepeat?.();
+        return;
+      }
+
+      // V - Toggle visualizer
+      if (e.code === "KeyV") {
+        e.preventDefault();
+        handlers.onToggleVisualizer?.();
         return;
       }
     };

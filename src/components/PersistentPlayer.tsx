@@ -8,12 +8,13 @@ import { useMobilePanes } from "@/contexts/MobilePanesContext";
 import { useEqualizer } from "@/hooks/useEqualizer";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { api } from "@/trpc/react";
-import { extractColorsFromImage, type ColorPalette } from "@/utils/colorExtractor";
-import { getCoverImage } from "@/utils/images";
+// import { extractColorsFromImage, type ColorPalette } from "@/utils/colorExtractor";
+// import { getCoverImage } from "@/utils/images";
 import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { useAudioReactiveBackground } from "@/hooks/useAudioReactiveBackground";
+import { LightweightParticleBackground } from "./LightweightParticleBackground";
 import MaturePlayer from "./Player";
 
 // Dynamic imports to prevent SSR issues with Web Audio API
@@ -69,17 +70,26 @@ export default function PersistentPlayer() {
     }
   }, [preferences]);
 
+  // Load visualizer preference from localStorage when not authenticated
   useEffect(() => {
-    if (isAuthenticated) return;
+    if (isAuthenticated) return; // Skip if authenticated (preferences come from DB)
     if (typeof window === "undefined") return;
+    
     const stored = window.localStorage.getItem(STORAGE_KEYS.VISUALIZER_ENABLED);
     if (stored !== null) {
-      setVisualizerEnabled(stored === "true");
+      try {
+        const parsed: unknown = JSON.parse(stored);
+        setVisualizerEnabled(parsed === true);
+      } catch {
+        // Fallback for old format
+        setVisualizerEnabled(stored === "true");
+      }
     }
-  }, [isAuthenticated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]); // Only run when auth status changes or on mount
 
-  // Audio-reactive background effects
-  useAudioReactiveBackground(player.audioElement, player.isPlaying);
+  // Audio-reactive background effects (only when visualizer enabled)
+  useAudioReactiveBackground(player.audioElement, player.isPlaying, visualizerEnabled);
 
   // Extract colors from album art when track changes - DISABLED (visualizer is disabled)
   // useEffect(() => {
@@ -237,6 +247,9 @@ export default function PersistentPlayer() {
           ensureVisibleSignal={visualizerEnsureToken}
         />
       )} */}
+
+      {/* Lightweight particle background when visualizer is disabled */}
+      {!visualizerEnabled && <LightweightParticleBackground />}
     </>
   );
 }

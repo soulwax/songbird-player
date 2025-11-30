@@ -32,10 +32,13 @@ export class FrequencyBandCircularRenderer {
       this.time += 0.02;
       this.rotationOffset += 0.01;
 
-      // Radial gradient background
+      // Vibrant radial gradient background
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
       const maxRadius = Math.min(canvas.width, canvas.height) / 2;
+      // Frequency bands are already normalized to 0-1 range
+      const avgIntensity = (audioAnalysis.frequencyBands.bass + audioAnalysis.frequencyBands.mid + audioAnalysis.frequencyBands.treble) / 3;
+      const hueShift = Math.min(60, avgIntensity * 45); // Clamp to max 60 degrees
 
       const bgGradient = ctx.createRadialGradient(
         centerX,
@@ -45,9 +48,9 @@ export class FrequencyBandCircularRenderer {
         centerY,
         maxRadius
       );
-      bgGradient.addColorStop(0, "rgba(5, 10, 25, 0.98)");
-      bgGradient.addColorStop(0.5, "rgba(10, 5, 20, 0.99)");
-      bgGradient.addColorStop(1, "rgba(0, 0, 0, 1)");
+      bgGradient.addColorStop(0, `hsla(${270 + hueShift}, 78%, 24%, 0.95)`);
+      bgGradient.addColorStop(0.5, `hsla(${260 + hueShift}, 72%, 19%, 0.97)`);
+      bgGradient.addColorStop(1, `hsla(${250 + hueShift}, 68%, 12%, 1)`);
       ctx.fillStyle = bgGradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
