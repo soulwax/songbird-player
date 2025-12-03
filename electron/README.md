@@ -1,62 +1,104 @@
-# Electron Setup
+# Electron Setup for Starchild Music
 
-This application can run as a desktop app using Electron.
+## What Was
 
-## Development
+The error "ReferenceError: process is not defined in ES module scope" occurred because:
 
-To run the app in Electron development mode:
+1. Your `package.json` has `"type": "module"`, making all `.js` files ES modules
+2. Electron's main process file was missing or incorrectly configured
+
+## Solution Applied
+
+1. Created `electron/main.cjs` - Main process file using CommonJS (`.cjs` extension explicitly marks it as CommonJS, avoiding ES module conflicts)
+2. Created `electron/preload.cjs` - Preload script for secure renderer communication
+3. Created `electron/types.d.ts` - TypeScript definitions for Electron API
+4. Updated `package.json` to point to `main.cjs` instead of `main.js`
+
+## What can
+
+### Development
 
 ```bash
 npm run electron:dev
 ```
 
-This will:
-1. Start the Next.js dev server on `http://localhost:3222`
-2. Wait for the server to be ready
-3. Launch Electron and load the app
+This starts both the Next.js dev server and Electron, with hot reload enabled.
 
-## Building for Production
+### Production Build
 
-### Build for all platforms:
+For Windows:
+
 ```bash
-npm run electron:build
+npm run electron:build:win
 ```
 
-### Build for specific platform:
+For macOS:
+
 ```bash
-# Windows
-npm run electron:build:win
-
-# macOS
 npm run electron:build:mac
+```
 
-# Linux
+For Linux:
+
+```bash
 npm run electron:build:linux
 ```
 
-Built applications will be in the `dist/` directory.
+## Important Notes
 
-## Features
+### Static vs Server Mode
 
-- **Media Keys Support**: Play/pause, next, and previous track buttons work system-wide
-- **Native Window**: Proper desktop window with native controls
-- **Security**: Context isolation enabled, no node integration in renderer
-- **External Links**: Opens external URLs in default browser
-- **Platform Detection**: App can detect if running in Electron vs browser
+Currently, your Next.js is configured to use `standalone` mode for Electron builds when `ELECTRON_BUILD=true`. However, the build scripts don't set this variable yet.
 
-## Architecture
+**If you need server-side features (tRPC, API routes, SSR):**
 
-- `electron/main.js`: Main Electron process (handles window, app lifecycle)
-- `electron/preload.js`: Preload script (exposes safe APIs to renderer)
-- The renderer (Next.js app) communicates via `window.electron` API
+- Keep standalone mode
+- Update build scripts to set `ELECTRON_BUILD=true`
+- Update electron-builder `files` config to include `.next/standalone/**/*`
 
-## Media Keys
+**If you want a simpler static build (no server-side features):**
 
-Media keys are automatically registered on Windows and Linux. On macOS, system media keys work natively through the Media Session API.
+- Change `next.config.js` output to `'export'`
+- This creates static HTML in `out/` directory (which electron-builder expects)
 
-## Notes
+### Next Steps
 
-- The app runs the Next.js server in development mode
-- For production builds, you may need to bundle the Next.js server or use static export
-- Icons should be placed in `public/` directory (icon.ico, icon.icns, icon.png)
+1. Rebuild your Electron app with the new configuration
+2. Test the .exe - the error should be resolved
+3. If using server features, update the build configuration as noted above
 
+## File Structure
+
+```sh
+electron/
+├── main.cjs       # Main process (CommonJS to avoid ES module issues)
+├── preload.cjs    # Preload script for security
+└── types.d.ts     # TypeScript definitions
+```
+
+## Security Notes
+
+The preload script enables secure communication between Electron and your Next.js renderer:
+
+- `contextIsolation: true` - Prevents renderer from directly accessing Node.js
+- `sandbox: true` - Additional security layer
+- Preload script exposes only specific, safe APIs to the renderer
+
+## Accessing Electron APIs in Your Next.js Code
+
+In your React components, you can access Electron APIs:
+
+```typescript
+// Check if running in Electron
+if (typeof window !== 'undefined' && window.electron) {
+  console.log('Platform:', window.electron.platform);
+  
+  // Send message to main process
+  window.electron.send('toMain', { data: 'hello' });
+  
+  // Receive messages from main process
+  window.electron.receive('fromMain', (data) => {
+    console.log('Received:', data);
+  });
+}
+```
