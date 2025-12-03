@@ -15,6 +15,7 @@ export class FrequencyBandRadialRenderer {
   private ringHistory: number[] = [];
   private particles: RingParticle[] = [];
   private time = 0;
+  private kaleidoscopeRotation = 0;
 
   // Color mapping for each frequency band
   private readonly bandColors = [
