@@ -5,6 +5,7 @@ import "./src/env.js";
 /** @type {import("next").NextConfig} */
 const config = {
   reactStrictMode: true,
+  output: process.env.ELECTRON_BUILD === "true" ? "export" : undefined,
   // Electron runs in normal mode, connects to your API server
   // Don't use static export for Electron if you need tRPC/API routes
   images: {
