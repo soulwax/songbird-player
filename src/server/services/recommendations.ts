@@ -475,7 +475,6 @@ export async function fetchMultiSeedRecommendations(
   } = {},
 ): Promise<MultiSeedRecommendationsResult> {
   const {
-    userFavoriteArtistIds = [],
     limit = 30,
     diversityWeight = 0.5,
   } = options;

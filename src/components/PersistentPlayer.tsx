@@ -85,7 +85,6 @@ export default function PersistentPlayer() {
         setVisualizerEnabled(stored === "true");
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]); // Only run when auth status changes or on mount
 
   // Audio-reactive background effects (only when visualizer enabled)

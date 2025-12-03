@@ -229,8 +229,9 @@ export default function PublicProfilePage({
             const playlist = item as {
               id: number;
               name: string;
-              description: string | null;
+              description?: string | null;
               coverImage: string | null;
+              trackCount?: number;
             };
             return (
               <Link

@@ -221,12 +221,11 @@ export default function MobilePlayer(props: MobilePlayerProps) {
         setVisualizerEnabled(stored === "true");
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   // Persist visualizer preference changes (similar to PersistentPlayer)
   // This callback is available for future use when a visualizer toggle is added to mobile UI
-  const persistVisualizerPreference = useCallback(
+  const _persistVisualizerPreference = useCallback(
     (next: boolean) => {
       setVisualizerEnabled(next);
       if (isAuthenticated) {

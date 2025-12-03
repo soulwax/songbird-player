@@ -10,7 +10,6 @@ export class CircularRenderer {
   }
 
   public render(ctx: CanvasRenderingContext2D, data: Uint8Array, canvas: HTMLCanvasElement, barCount = 64): void {
-    // Vibrant dynamic gradient background - more intense
     const avgAmplitude = data.reduce((sum, val) => sum + val, 0) / data.length / 255;
     const hueShift = avgAmplitude * 50;
     
@@ -32,7 +31,6 @@ export class CircularRenderer {
     const centerY = canvas.height / 2;
     const baseRadius = Math.min(canvas.width, canvas.height) / 3;
 
-    // Average amplitude already calculated above
     const pulseMultiplier = 1 + Math.sin(this.pulsePhase) * avgAmplitude * 0.4;
     const radius = baseRadius * pulseMultiplier;
 
@@ -42,7 +40,6 @@ export class CircularRenderer {
     const barAngle = (Math.PI * 2) / barCount;
     const dataStep = Math.floor(data.length / barCount);
 
-    // Kaleidoscopic mirroring - create off-screen canvas
     const offCanvas = document.createElement('canvas');
     offCanvas.width = canvas.width;
     offCanvas.height = canvas.height;
@@ -52,15 +49,13 @@ export class CircularRenderer {
 
     const segments = 12; // More segments for kaleidoscopic effect
 
-    // Draw bars in kaleidoscopic segments
     for (let seg = 0; seg < segments; seg++) {
       offCtx.save();
       offCtx.translate(centerX, centerY);
       offCtx.rotate((seg * Math.PI * 2) / segments);
-      offCtx.scale(seg % 2 === 0 ? 1 : -1, 1); // Mirror alternate segments
+      offCtx.scale(seg % 2 === 0 ? 1 : -1, 1); 
       offCtx.translate(-centerX, -centerY);
 
-      // Draw concentric glow circles
       for (let i = 0; i < 3; i++) {
         const glowRadius = radius * (0.9 - i * 0.15);
         offCtx.strokeStyle = `rgba(138, 43, 226, ${0.3 - i * 0.1})`;
@@ -95,12 +90,10 @@ export class CircularRenderer {
       const x2 = centerX + Math.cos(angle) * (radius + barLength);
       const y2 = centerY + Math.sin(angle) * (radius + barLength);
 
-      // HSL color based on position and amplitude - more vibrant
       const hue = (i / barCount) * 360 + 200 + seg * 20; // Full spectrum with segment shift
       const saturation = 90 + normalizedValue * 10; // Higher base saturation
       const lightness = 60 + normalizedValue * 30; // Brighter
 
-      // Gradient from inner to outer - more opaque
       const gradient = offCtx.createLinearGradient(x1, y1, x2, y2);
       gradient.addColorStop(0, `hsla(${hue}, ${saturation}%, ${lightness - 15}%, 0.8)`);
       gradient.addColorStop(0.5, `hsla(${hue}, ${saturation}%, ${lightness}%, 1)`);
@@ -117,7 +110,6 @@ export class CircularRenderer {
       offCtx.lineTo(x2, y2);
       offCtx.stroke();
 
-      // Draw peak indicator - more visible
       if (currentPeak > 0) {
         const peakX = centerX + Math.cos(angle) * (radius + currentPeak);
         const peakY = centerY + Math.sin(angle) * (radius + currentPeak);
@@ -131,12 +123,10 @@ export class CircularRenderer {
       }
     }
 
-      offCtx.restore(); // End kaleidoscopic segment
-    }
+      offCtx.restore();
 
     offCtx.shadowBlur = 0;
 
-    // Draw inner circle with pulsing glow on off-screen canvas
     const innerGradient = offCtx.createRadialGradient(
       centerX, centerY, 0,
       centerX, centerY, radius * 0.8
@@ -159,7 +149,6 @@ export class CircularRenderer {
     offCtx.fill();
     offCtx.shadowBlur = 0;
 
-    // Draw connecting arcs between high-amplitude bars - more visible
     offCtx.strokeStyle = 'rgba(147, 112, 219, 0.5)';
     offCtx.lineWidth = 2;
     for (let i = 0; i < barCount; i++) {
@@ -177,7 +166,6 @@ export class CircularRenderer {
       }
     }
 
-    // Apply kaleidoscopic mirroring to main canvas
     for (let seg = 0; seg < segments; seg++) {
       ctx.save();
       ctx.translate(centerX, centerY);
@@ -197,6 +185,4 @@ export class CircularRenderer {
   public updateBarCount(barCount: number): void {
     this.peakHistory = new Array<number>(barCount).fill(0);
   }
-}
-
 }
