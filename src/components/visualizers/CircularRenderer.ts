@@ -149,8 +149,8 @@ export class CircularRenderer {
     offCtx.fill();
     offCtx.shadowBlur = 0;
 
-    offCtx.strokeStyle = 'rgba(147, 112, 219, 0.5)';
-    offCtx.lineWidth = 2;
+    offCtx.strokeStyle = 'rgba(147, 112, 219, 0.9)';
+    offCtx.lineWidth = 3;
     for (let i = 0; i < barCount; i++) {
       const dataIndex = i * dataStep;
       const value = data[dataIndex] ?? 0;
