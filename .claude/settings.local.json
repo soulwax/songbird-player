@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(tree:*)",
+      "Bash(source ~/.zshrc)",
+      "Bash(npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(npx tsx:*)",
+      "Bash(curl:*)",
+      "Bash(command -v:*)",
+      "Bash(npm run db:generate:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
