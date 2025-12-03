@@ -4,6 +4,31 @@
   "private": true,
   "type": "module",
   "email": "cirrus.okimasu@gmail.com",
+  "author": "Cirrus Okimasu",
+  "license": "MIT",
+  "homepage": "https://starchild.music",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/soulwax/starchild-music-frontend"
+  },
+  "bugs": {
+    "url": "https://github.com/soulwax/starchild-music-frontend/issues"
+  },
+  "keywords": [
+    "starchild",
+    "music",
+    "frontend",
+    "nextjs",
+    "tailwindcss",
+    "typescript"
+  ],
+  "contributors": [
+    {
+      "name": "Cirrus Okimasu",
+      "email": "cirrus.okimasu@gmail.com",
+      "url": "https://github.com/soulwax"
+    }
+  ],
   "scripts": {
     "build": "next build",
     "check": "eslint . && tsc --noEmit",
