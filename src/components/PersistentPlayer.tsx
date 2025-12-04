@@ -18,11 +18,10 @@ import { LightweightParticleBackground } from "./LightweightParticleBackground";
 import MaturePlayer from "./Player";
 
 // Dynamic imports to prevent SSR issues with Web Audio API
-// AudioVisualizer is disabled - keeping import commented for future use
-// const AudioVisualizer = dynamic(
-//   () => import("./AudioVisualizer").then((mod) => mod.AudioVisualizer),
-//   { ssr: false },
-// );
+const AudioVisualizer = dynamic(
+  () => import("./AudioVisualizer").then((mod) => mod.AudioVisualizer),
+  { ssr: false },
+);
 
 const Equalizer = dynamic(
   () => import("./Equalizer").then((mod) => mod.Equalizer),
@@ -244,27 +243,27 @@ export default function PersistentPlayer() {
         />
       )}
 
-      {/* Audio Visualizer - DISABLED */}
-      {/* {player.audioElement && player.currentTrack && visualizerEnabled && !isMobile && (
+      {/* Kaleidoscope Audio Visualizer */}
+      {player.audioElement && player.currentTrack && visualizerEnabled && !isMobile && (
         <AudioVisualizer
           audioElement={player.audioElement}
           isPlaying={player.isPlaying}
-          width={280}
-          height={100}
+          width={400}
+          height={400}
           barCount={64}
-          type={(preferences?.visualizerType as "bars" | "wave" | "circular" | "oscilloscope" | "spectrum" | "spectral-waves" | "radial-spectrum" | "particles" | "waveform-mirror" | "frequency-rings" | "frequency-bands" | "frequency-circular" | "frequency-layered" | "frequency-waterfall" | "frequency-radial" | "frequency-particles") ?? "spectrum"}
+          type="kaleidoscope"
           onTypeChange={(newType) => {
             updatePreferences.mutate({ visualizerType: newType });
           }}
           onClose={() => {
             persistVisualizerPreference(false);
           }}
-          colorPalette={albumColorPalette}
+          colorPalette={albumColorPalette ?? null}
           isDraggable={true}
           blendWithBackground={true}
-          ensureVisibleSignal={visualizerEnsureToken}
+          ensureVisibleSignal={visualizerEnsureToken ?? 0}
         />
-      )} */}
+      )}
 
       {/* Lightweight particle background when visualizer is disabled */}
       {!visualizerEnabled && <LightweightParticleBackground />}

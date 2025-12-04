@@ -62,128 +62,13 @@ body.visualizer-disabled::after {
   animation: none !important;
 }
 
-/* Kaleidoscopic ray burst layer - Primary colorful rays */
+/* Simple dark background - let canvas kaleidoscope shine */
 html::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -3;
-  background:
-    /* Deep space base */
-    radial-gradient(circle at 50% 50%, #000000 0%, #0a0015 100%),
-    /* Vibrant ray burst - 16 colorful rays */
-    conic-gradient(from calc(var(--audio-hue) * 4deg) at 50% 50%,
-      hsla(0, 100%, 60%, calc(0.6 + var(--audio-bass) * 0.4)) 0deg,
-      hsla(0, 100%, 60%, 0) 11.25deg,
-      hsla(30, 100%, 65%, calc(0.65 + var(--audio-intensity) * 0.35)) 22.5deg,
-      hsla(30, 100%, 65%, 0) 33.75deg,
-      hsla(60, 100%, 60%, calc(0.6 + var(--audio-energy) * 0.4)) 45deg,
-      hsla(60, 100%, 60%, 0) 56.25deg,
-      hsla(120, 100%, 55%, calc(0.65 + var(--audio-treble) * 0.35)) 67.5deg,
-      hsla(120, 100%, 55%, 0) 78.75deg,
-      hsla(180, 100%, 60%, calc(0.6 + var(--audio-bass) * 0.4)) 90deg,
-      hsla(180, 100%, 60%, 0) 101.25deg,
-      hsla(200, 100%, 65%, calc(0.65 + var(--audio-intensity) * 0.35)) 112.5deg,
-      hsla(200, 100%, 65%, 0) 123.75deg,
-      hsla(240, 100%, 60%, calc(0.6 + var(--audio-energy) * 0.4)) 135deg,
-      hsla(240, 100%, 60%, 0) 146.25deg,
-      hsla(270, 100%, 65%, calc(0.65 + var(--audio-treble) * 0.35)) 157.5deg,
-      hsla(270, 100%, 65%, 0) 168.75deg,
-      hsla(300, 100%, 60%, calc(0.6 + var(--audio-bass) * 0.4)) 180deg,
-      hsla(300, 100%, 60%, 0) 191.25deg,
-      hsla(320, 100%, 65%, calc(0.65 + var(--audio-intensity) * 0.35)) 202.5deg,
-      hsla(320, 100%, 65%, 0) 213.75deg,
-      hsla(340, 100%, 60%, calc(0.6 + var(--audio-energy) * 0.4)) 225deg,
-      hsla(340, 100%, 60%, 0) 236.25deg,
-      hsla(10, 100%, 65%, calc(0.65 + var(--audio-treble) * 0.35)) 247.5deg,
-      hsla(10, 100%, 65%, 0) 258.75deg,
-      hsla(80, 100%, 60%, calc(0.6 + var(--audio-bass) * 0.4)) 270deg,
-      hsla(80, 100%, 60%, 0) 281.25deg,
-      hsla(150, 100%, 65%, calc(0.65 + var(--audio-intensity) * 0.35)) 292.5deg,
-      hsla(150, 100%, 65%, 0) 303.75deg,
-      hsla(210, 100%, 60%, calc(0.6 + var(--audio-energy) * 0.4)) 315deg,
-      hsla(210, 100%, 60%, 0) 326.25deg,
-      hsla(290, 100%, 65%, calc(0.65 + var(--audio-treble) * 0.35)) 337.5deg,
-      hsla(290, 100%, 65%, 0) 348.75deg,
-      hsla(0, 100%, 60%, calc(0.6 + var(--audio-bass) * 0.4)) 360deg
-    );
-  background-size: 100% 100%, 300% 300%;
-  background-position: center, center;
-  animation: rayBurst 15s linear infinite;
-  filter: brightness(calc(1.2 + var(--audio-energy) * 0.5)) saturate(calc(1.5 + var(--audio-intensity) * 0.5));
-  transition: filter 0.2s ease;
-  will-change: transform, filter;
+  display: none;
 }
 
-/* Mobile optimization - simplified rays */
-@media (max-width: 768px) {
-  html::before {
-    background:
-      radial-gradient(circle at 50% 50%, #000000 0%, #0a0015 100%),
-      conic-gradient(from calc(var(--audio-hue) * 3deg) at 50% 50%,
-        hsla(0, 100%, 60%, calc(0.5 + var(--audio-bass) * 0.3)) 0deg,
-        hsla(0, 100%, 60%, 0) 22.5deg,
-        hsla(120, 100%, 55%, calc(0.55 + var(--audio-intensity) * 0.3)) 45deg,
-        hsla(120, 100%, 55%, 0) 67.5deg,
-        hsla(240, 100%, 60%, calc(0.5 + var(--audio-energy) * 0.3)) 90deg,
-        hsla(240, 100%, 60%, 0) 112.5deg,
-        hsla(300, 100%, 65%, calc(0.55 + var(--audio-treble) * 0.3)) 135deg,
-        hsla(300, 100%, 65%, 0) 157.5deg,
-        hsla(60, 100%, 60%, calc(0.5 + var(--audio-bass) * 0.3)) 180deg,
-        hsla(60, 100%, 60%, 0) 202.5deg,
-        hsla(180, 100%, 55%, calc(0.55 + var(--audio-intensity) * 0.3)) 225deg,
-        hsla(180, 100%, 55%, 0) 247.5deg,
-        hsla(320, 100%, 60%, calc(0.5 + var(--audio-energy) * 0.3)) 270deg,
-        hsla(320, 100%, 60%, 0) 292.5deg,
-        hsla(200, 100%, 65%, calc(0.55 + var(--audio-treble) * 0.3)) 315deg,
-        hsla(200, 100%, 65%, 0) 337.5deg,
-        hsla(0, 100%, 60%, calc(0.5 + var(--audio-bass) * 0.3)) 360deg
-      );
-    background-size: 100% 100%, 250% 250%;
-    animation-duration: 18s;
-    filter: brightness(calc(1.1 + var(--audio-energy) * 0.4)) saturate(calc(1.4 + var(--audio-intensity) * 0.4));
-  }
-}
-
-/* Geometric shapes layer - Colorful polygons */
 html::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  opacity: calc(0.8 + var(--audio-energy) * 0.2);
-  background:
-    /* Triangle burst pattern */
-    conic-gradient(from calc(var(--audio-hue) * -2deg) at 30% 30%,
-      transparent 0deg,
-      hsla(60, 100%, 65%, calc(0.4 + var(--audio-treble) * 0.3)) 15deg,
-      transparent 30deg,
-      hsla(180, 100%, 60%, calc(0.45 + var(--audio-bass) * 0.35)) 45deg,
-      transparent 60deg,
-      hsla(300, 100%, 65%, calc(0.4 + var(--audio-intensity) * 0.3)) 75deg,
-      transparent 90deg
-    ),
-    /* Hexagonal pattern */
-    conic-gradient(from calc(var(--audio-hue) * 3deg) at 70% 70%,
-      transparent 0deg,
-      hsla(120, 100%, 55%, calc(0.4 + var(--audio-energy) * 0.3)) 30deg,
-      transparent 60deg,
-      hsla(240, 100%, 60%, calc(0.45 + var(--audio-treble) * 0.35)) 90deg,
-      transparent 120deg,
-      hsla(0, 100%, 65%, calc(0.4 + var(--audio-bass) * 0.3)) 150deg,
-      transparent 180deg
-    ),
-    /* Radial shape bursts */
-    radial-gradient(circle at calc(50% + var(--audio-bass) * 20%) calc(50% + var(--audio-treble) * 20%),
-      hsla(calc(var(--audio-hue) + 45), 100%, 60%, calc(0.5 + var(--audio-energy) * 0.3)) 0%,
-      transparent 40%);
-  background-size: 400% 400%, 350% 350%, 200% 200%;
-  background-position: center, center, center;
-  animation: shapeSpin 25s linear infinite;
-  pointer-events: none;
-  mix-blend-mode: screen;
-  filter: brightness(calc(1.3 + var(--audio-energy) * 0.4)) saturate(1.6);
-  transition: opacity 0.3s ease, filter 0.2s ease;
+  display: none;
 }
 
 body {
@@ -201,127 +86,13 @@ body {
   transition: background 0.5s ease;
 }
 
-/* Mirror layer - Creates kaleidoscope reflection effect */
+/* Hide body pseudo-elements - canvas only */
 body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background:
-    /* Primary mirror rays - vivid colors */
-    conic-gradient(from calc(var(--audio-hue) * 2.5deg) at 50% 50%,
-      hsla(45, 100%, 65%, calc(0.5 + var(--audio-bass) * 0.4)) 0deg,
-      hsla(45, 100%, 65%, 0) 15deg,
-      hsla(135, 100%, 60%, calc(0.55 + var(--audio-intensity) * 0.35)) 30deg,
-      hsla(135, 100%, 60%, 0) 45deg,
-      hsla(225, 100%, 65%, calc(0.5 + var(--audio-energy) * 0.4)) 60deg,
-      hsla(225, 100%, 65%, 0) 75deg,
-      hsla(315, 100%, 60%, calc(0.55 + var(--audio-treble) * 0.35)) 90deg,
-      hsla(315, 100%, 60%, 0) 105deg,
-      hsla(90, 100%, 65%, calc(0.5 + var(--audio-bass) * 0.4)) 120deg,
-      hsla(90, 100%, 65%, 0) 135deg,
-      hsla(170, 100%, 60%, calc(0.55 + var(--audio-intensity) * 0.35)) 150deg,
-      hsla(170, 100%, 60%, 0) 165deg,
-      hsla(260, 100%, 65%, calc(0.5 + var(--audio-energy) * 0.4)) 180deg,
-      hsla(260, 100%, 65%, 0) 195deg,
-      hsla(350, 100%, 60%, calc(0.55 + var(--audio-treble) * 0.35)) 210deg,
-      hsla(350, 100%, 60%, 0) 225deg,
-      hsla(20, 100%, 65%, calc(0.5 + var(--audio-bass) * 0.4)) 240deg,
-      hsla(20, 100%, 65%, 0) 255deg,
-      hsla(110, 100%, 60%, calc(0.55 + var(--audio-intensity) * 0.35)) 270deg,
-      hsla(110, 100%, 60%, 0) 285deg,
-      hsla(200, 100%, 65%, calc(0.5 + var(--audio-energy) * 0.4)) 300deg,
-      hsla(200, 100%, 65%, 0) 315deg,
-      hsla(280, 100%, 60%, calc(0.55 + var(--audio-treble) * 0.35)) 330deg,
-      hsla(280, 100%, 60%, 0) 345deg,
-      hsla(45, 100%, 65%, calc(0.5 + var(--audio-bass) * 0.4)) 360deg
-    );
-  background-size: 350% 350%;
-  background-position: center;
-  animation: mirrorRotate 30s linear infinite;
-  opacity: calc(0.9 + var(--audio-energy) * 0.1);
-  pointer-events: none;
-  mix-blend-mode: lighten;
-  filter: brightness(calc(1.4 + var(--audio-energy) * 0.5)) saturate(1.7);
-  transition: opacity 0.3s ease, filter 0.2s ease;
+  display: none;
 }
 
-/* Ray burst rotation animation */
-@keyframes rayBurst {
-  0% {
-    transform: rotate(0deg) scale(1);
-  }
-  100% {
-    transform: rotate(360deg) scale(1);
-  }
-}
-
-/* Geometric shapes spin animation */
-@keyframes shapeSpin {
-  0% {
-    transform: rotate(0deg) scale(1);
-    background-position: 0% 0%, 0% 0%, 50% 50%;
-  }
-  25% {
-    transform: rotate(90deg) scale(1.1);
-    background-position: 25% 25%, 75% 25%, 60% 40%;
-  }
-  50% {
-    transform: rotate(180deg) scale(1.15);
-    background-position: 50% 50%, 50% 50%, 40% 60%;
-  }
-  75% {
-    transform: rotate(270deg) scale(1.1);
-    background-position: 75% 75%, 25% 75%, 60% 40%;
-  }
-  100% {
-    transform: rotate(360deg) scale(1);
-    background-position: 100% 100%, 100% 100%, 50% 50%;
-  }
-}
-
-/* Mirror rotation animation */
-@keyframes mirrorRotate {
-  0% {
-    transform: rotate(0deg) scale(1);
-  }
-  100% {
-    transform: rotate(-360deg) scale(1);
-  }
-}
-
-/* Central glow pulse layer */
 body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background:
-    radial-gradient(circle at 50% 50%,
-      hsla(calc(var(--audio-hue) + 90), 100%, 60%, calc(var(--audio-bass) * 0.4)) 0%,
-      hsla(calc(var(--audio-hue) + 180), 100%, 65%, calc(var(--audio-energy) * 0.3)) 20%,
-      transparent 50%);
-  pointer-events: none;
-  opacity: calc(0.6 + var(--audio-intensity) * 0.4);
-  transition: opacity 0.3s ease;
-  mix-blend-mode: screen;
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-}
-
-/* Reduce on mobile for better performance */
-@media (max-width: 768px) {
-  body::after {
-    opacity: calc(0.4 + var(--audio-intensity) * 0.3);
-  }
+  display: none;
 }
 
 ::selection {
