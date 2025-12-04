@@ -1,22 +1,7 @@
 // File: src/constants/visualizer.ts
 
 export const VISUALIZER_TYPES = [
-  "bars",
-  "spectrum",
-  "oscilloscope",
-  "spectral-waves",
-  "radial-spectrum",
-  "wave",
-  "circular",
-  "waveform-mirror",
-  "particles",
-  "frequency-rings",
-  "frequency-bands",
-  "frequency-circular",
-  "frequency-layered",
-  "frequency-waterfall",
-  "frequency-radial",
-  "frequency-particles",
+  "kaleidoscope",
 ] as const;
 
 export type VisualizerType = (typeof VISUALIZER_TYPES)[number];
@@ -37,14 +22,14 @@ export interface VisualizerSerializedState extends VisualizerLayoutState {
 }
 
 export const DEFAULT_VISUALIZER_LAYOUT_STATE: VisualizerLayoutState = {
-  width: 300,
-  height: 80,
-  collapsedWidth: 300,
-  collapsedHeight: 80,
+  width: 400,
+  height: 400,
+  collapsedWidth: 400,
+  collapsedHeight: 400,
   x: 16,
   y: 16,
   isExpanded: false,
-  type: "bars",
+  type: "kaleidoscope",
 };
 
 export const DEFAULT_VISUALIZER_STATE: VisualizerSerializedState = {

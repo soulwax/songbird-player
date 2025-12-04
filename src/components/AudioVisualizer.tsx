@@ -9,24 +9,10 @@ import {
   type VisualizerType,
 } from "@/constants/visualizer";
 import { useAudioVisualizer } from "@/hooks/useAudioVisualizer";
-import { analyzeAudio, type AudioAnalysis } from "@/utils/audioAnalysis";
 import type { ColorPalette } from "@/utils/colorExtractor";
 import { GripVertical, Maximize2, Minimize2, Move, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BarsRenderer } from "./visualizers/BarsRenderer";
-import { CircularRenderer } from "./visualizers/CircularRenderer";
-import { FrequencyBandBarsRenderer } from "./visualizers/FrequencyBandBarsRenderer";
-import { FrequencyBandCircularRenderer } from "./visualizers/FrequencyBandCircularRenderer";
-import { FrequencyBandLayeredRenderer } from "./visualizers/FrequencyBandLayeredRenderer";
-import { FrequencyBandParticlesRenderer } from "./visualizers/FrequencyBandParticlesRenderer";
-import { FrequencyBandRadialRenderer } from "./visualizers/FrequencyBandRadialRenderer";
-import { FrequencyBandWaterfallRenderer } from "./visualizers/FrequencyBandWaterfallRenderer";
-import { FrequencyRingsRenderer } from "./visualizers/FrequencyRingsRenderer";
-import { ParticleRenderer } from "./visualizers/ParticleRenderer";
-import { RadialSpectrumRenderer } from "./visualizers/RadialSpectrumRenderer";
-import { SpectralWavesRenderer } from "./visualizers/SpectralWavesRenderer";
-import { SpectrumRenderer } from "./visualizers/SpectrumRenderer";
-import { WaveRenderer } from "./visualizers/WaveRenderer";
+import { KaleidoscopeRenderer } from "./visualizers/KaleidoscopeRenderer";
 interface AudioVisualizerProps {
   audioElement: HTMLAudioElement | null;
   isPlaying: boolean;
@@ -46,20 +32,6 @@ interface AudioVisualizerProps {
   ensureVisibleSignal?: number;
 }
 
-const TIME_DOMAIN_TYPES = new Set<VisualizerType>([
-  "wave",
-  "oscilloscope",
-  "waveform-mirror",
-]);
-const FREQUENCY_ANALYSIS_TYPES = new Set<VisualizerType>([
-  "frequency-bands",
-  "frequency-circular",
-  "frequency-layered",
-  "frequency-waterfall",
-  "frequency-radial",
-  "frequency-particles",
-]);
-const ANALYSIS_INTERVAL_MS = 80;
 const {
   MIN_WIDTH,
   MIN_HEIGHT,
@@ -77,9 +49,8 @@ export function AudioVisualizer({
   width = 300,
   height = 80,
   barCount = 64,
-  barColor = "rgba(99, 102, 241, 0.8)",
   barGap = 2,
-  type = "bars",
+  type = "kaleidoscope",
   onTypeChange,
   colorPalette = null,
   isDraggable = false,
@@ -302,65 +273,34 @@ export function AudioVisualizer({
     return () => clearTimeout(timer);
   }, []);
 
-  // Renderer instances
-  const barsRendererRef = useRef<BarsRenderer | null>(null);
-  const spectrumRendererRef = useRef<SpectrumRenderer | null>(null);
-  const waveRendererRef = useRef<WaveRenderer | null>(null);
-  const circularRendererRef = useRef<CircularRenderer | null>(null);
-  const spectralWavesRendererRef = useRef<SpectralWavesRenderer | null>(null);
-  const radialSpectrumRendererRef = useRef<RadialSpectrumRenderer | null>(null);
-  const particleRendererRef = useRef<ParticleRenderer | null>(null);
-  const frequencyRingsRendererRef = useRef<FrequencyRingsRenderer | null>(null);
-  const frequencyBandBarsRendererRef = useRef<FrequencyBandBarsRenderer | null>(
-    null,
-  );
-  const frequencyBandCircularRendererRef =
-    useRef<FrequencyBandCircularRenderer | null>(null);
-  const frequencyBandLayeredRendererRef =
-    useRef<FrequencyBandLayeredRenderer | null>(null);
-  const frequencyBandWaterfallRendererRef =
-    useRef<FrequencyBandWaterfallRenderer | null>(null);
-  const frequencyBandRadialRendererRef =
-    useRef<FrequencyBandRadialRenderer | null>(null);
-  const frequencyBandParticlesRendererRef =
-    useRef<FrequencyBandParticlesRenderer | null>(null);
+  // Kaleidoscope renderer instance
+  const kaleidoscopeRendererRef = useRef<KaleidoscopeRenderer | null>(null);
 
   const visualizer = useAudioVisualizer(audioElement, {
     fftSize: 2048,
     smoothingTimeConstant: 0.75,
   });
 
-  // Enhanced audio analysis cache (using ref for immediate access in render loop)
-  const audioAnalysisRef = useRef<{
-    data: AudioAnalysis;
-    timestamp: number;
-  } | null>(null);
 
-  // Initialize renderers
+  // Initialize kaleidoscope renderer when canvas is available
   useEffect(() => {
-    barsRendererRef.current = new BarsRenderer(barCount);
-    spectrumRendererRef.current = new SpectrumRenderer(barCount, barGap);
-    waveRendererRef.current = new WaveRenderer();
-    circularRendererRef.current = new CircularRenderer(barCount);
-    spectralWavesRendererRef.current = new SpectralWavesRenderer();
-    radialSpectrumRendererRef.current = new RadialSpectrumRenderer(barCount);
-    particleRendererRef.current = new ParticleRenderer(
-      barCount,
-      barGap,
-      barColor,
-    );
-    frequencyRingsRendererRef.current = new FrequencyRingsRenderer(8);
-    frequencyBandBarsRendererRef.current = new FrequencyBandBarsRenderer();
-    frequencyBandCircularRendererRef.current =
-      new FrequencyBandCircularRenderer();
-    frequencyBandLayeredRendererRef.current =
-      new FrequencyBandLayeredRenderer();
-    frequencyBandWaterfallRendererRef.current =
-      new FrequencyBandWaterfallRenderer();
-    frequencyBandRadialRendererRef.current = new FrequencyBandRadialRenderer();
-    frequencyBandParticlesRendererRef.current =
-      new FrequencyBandParticlesRenderer();
-  }, [barCount, barGap, barColor]);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    kaleidoscopeRendererRef.current = new KaleidoscopeRenderer(canvas);
+
+    return () => {
+      kaleidoscopeRendererRef.current = null;
+    };
+  }, []);
+
+  // Update kaleidoscope renderer size when dimensions change
+  useEffect(() => {
+    const renderer = kaleidoscopeRendererRef.current;
+    if (renderer) {
+      renderer.resize(dimensions.width, dimensions.height);
+    }
+  }, [dimensions.width, dimensions.height]);
 
   // Sync external type changes
   useEffect(() => {
@@ -575,162 +515,8 @@ export function AudioVisualizer({
     if (!ctx) return;
 
     const renderFrame = (data: Uint8Array) => {
-      const {
-        currentType: activeType,
-        barCount: frameBarCount,
-        barGap: frameBarGap,
-      } = renderParamsRef.current;
-
-      const needsFrequencyAnalysis = FREQUENCY_ANALYSIS_TYPES.has(activeType);
-      let currentAnalysis: AudioAnalysis | null = null;
-
-      if (needsFrequencyAnalysis) {
-        if (visualizer.audioContext && visualizer.analyser) {
-          const now = performance.now();
-          const cachedAnalysis = audioAnalysisRef.current;
-          if (
-            !cachedAnalysis ||
-            now - cachedAnalysis.timestamp > ANALYSIS_INTERVAL_MS
-          ) {
-            const sampleRate = visualizer.getSampleRate();
-            const fftSize = visualizer.getFFTSize();
-            const analysis = analyzeAudio(data, sampleRate, fftSize);
-            audioAnalysisRef.current = { data: analysis, timestamp: now };
-            currentAnalysis = analysis;
-          } else {
-            currentAnalysis = cachedAnalysis.data;
-          }
-        } else if (audioAnalysisRef.current) {
-          currentAnalysis = audioAnalysisRef.current.data;
-        }
-      } else {
-        audioAnalysisRef.current = null;
-      }
-
-      const needsTimeDomainData = TIME_DOMAIN_TYPES.has(activeType);
-      const timeDomainData = needsTimeDomainData
-        ? visualizer.getTimeDomainData()
-        : null;
-
-      switch (activeType) {
-        case "bars":
-          barsRendererRef.current?.render(
-            ctx,
-            data,
-            canvas,
-            frameBarCount,
-            frameBarGap,
-          );
-          break;
-        case "spectrum":
-          spectrumRendererRef.current?.render(ctx, data, canvas);
-          break;
-        case "oscilloscope":
-          if (timeDomainData) {
-            waveRendererRef.current?.renderOscilloscope(
-              ctx,
-              timeDomainData,
-              canvas,
-            );
-          }
-          break;
-        case "wave":
-          if (timeDomainData) {
-            waveRendererRef.current?.renderWave(ctx, timeDomainData, canvas);
-          }
-          break;
-        case "waveform-mirror":
-          if (timeDomainData) {
-            waveRendererRef.current?.renderWaveformMirror(
-              ctx,
-              timeDomainData,
-              canvas,
-            );
-          }
-          break;
-        case "circular":
-          circularRendererRef.current?.render(ctx, data, canvas, frameBarCount);
-          break;
-        case "spectral-waves":
-          spectralWavesRendererRef.current?.render(
-            ctx,
-            data,
-            canvas,
-            frameBarCount,
-          );
-          break;
-        case "radial-spectrum":
-          radialSpectrumRendererRef.current?.render(
-            ctx,
-            data,
-            canvas,
-            frameBarCount,
-          );
-          break;
-        case "particles":
-          particleRendererRef.current?.render(ctx, data, canvas);
-          break;
-        case "frequency-rings":
-          frequencyRingsRendererRef.current?.render(ctx, data, canvas);
-          break;
-        case "frequency-bands":
-          frequencyBandBarsRendererRef.current?.render(
-            ctx,
-            data,
-            canvas,
-            currentAnalysis,
-          );
-          break;
-        case "frequency-circular":
-          frequencyBandCircularRendererRef.current?.render(
-            ctx,
-            data,
-            canvas,
-            currentAnalysis,
-          );
-          break;
-        case "frequency-layered":
-          frequencyBandLayeredRendererRef.current?.render(
-            ctx,
-            data,
-            canvas,
-            currentAnalysis,
-          );
-          break;
-        case "frequency-waterfall":
-          frequencyBandWaterfallRendererRef.current?.render(
-            ctx,
-            data,
-            canvas,
-            currentAnalysis,
-          );
-          break;
-        case "frequency-radial":
-          frequencyBandRadialRendererRef.current?.render(
-            ctx,
-            data,
-            canvas,
-            currentAnalysis,
-          );
-          break;
-        case "frequency-particles":
-          frequencyBandParticlesRendererRef.current?.render(
-            ctx,
-            data,
-            canvas,
-            currentAnalysis,
-          );
-          break;
-        default:
-          barsRendererRef.current?.render(
-            ctx,
-            data,
-            canvas,
-            frameBarCount,
-            frameBarGap,
-          );
-          break;
-      }
+      // Render kaleidoscope visualization with audio data
+      kaleidoscopeRendererRef.current?.render(data, data.length);
     };
 
     if (isPlaying) {
