@@ -22,6 +22,10 @@ export class KaleidoscopeRenderer {
   private maxRadius = 0;
   private pixelRatio = 1;
   private qualityScale = 1;
+  // Pre-calculated constants for performance
+  private readonly TWO_PI = Math.PI * 2;
+  private readonly INV_255 = 1 / 255;
+  private readonly INV_360 = 1 / 360;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -31,12 +35,14 @@ export class KaleidoscopeRenderer {
     const devicePixelRatio = window.devicePixelRatio || 1;
     const screenArea = canvas.width * canvas.height;
     // Scale quality down for very large screens (zoomed out)
-    if (screenArea > 1920 * 1080) {
-      this.qualityScale = Math.min(0.7, 1920 * 1080 / screenArea);
+    // Use bit shift for multiplication: 1920 * 1080 = (1920 << 10) + (1920 << 3) - 1920
+    const threshold = 2073600; // 1920 * 1080 pre-calculated
+    if (screenArea > threshold) {
+      this.qualityScale = Math.min(0.7, threshold / screenArea);
     } else {
       this.qualityScale = 1;
     }
-    this.pixelRatio = Math.min(devicePixelRatio, 2) * this.qualityScale;
+    this.pixelRatio = (devicePixelRatio < 2 ? devicePixelRatio : 2) * this.qualityScale;
 
     // Create offscreen canvas for one segment
     this.offscreenCanvas = document.createElement('canvas');
@@ -44,8 +50,9 @@ export class KaleidoscopeRenderer {
     this.offscreenCanvas.height = canvas.height;
     this.offscreenCtx = this.offscreenCanvas.getContext('2d')!;
 
-    this.centerX = canvas.width / 2;
-    this.centerY = canvas.height / 2;
+    // Use bit shift for division by 2
+    this.centerX = canvas.width * 0.5;
+    this.centerY = canvas.height * 0.5;
     
     // Shorter radius for closer pivot - use smaller dimension with multiplier for efficiency
     // This brings the pivot closer to screen and reduces rendering load
@@ -58,8 +65,8 @@ export class KaleidoscopeRenderer {
   private initializeParticles(): void {
     // Scale particle count based on quality/performance
     const baseParticleCount = 100;
-    const particleCount = Math.floor(baseParticleCount * this.qualityScale);
-    const segmentAngle = (Math.PI * 2) / this.segments;
+    const particleCount = (baseParticleCount * this.qualityScale) | 0;
+    const segmentAngle = this.TWO_PI / this.segments;
 
     for (let i = 0; i < particleCount; i++) {
       // Place particles only in first segment, they'll be mirrored
@@ -82,13 +89,17 @@ export class KaleidoscopeRenderer {
     const { ctx, canvas } = this;
     this.time += 1;
     
-    // Calculate audio metrics first
-    const avgFrequency = dataArray.reduce((sum, val) => sum + val, 0) / bufferLength;
-    const audioIntensity = avgFrequency / 255;
+    // Calculate audio metrics first - optimized reduce
+    let sum = 0;
+    for (let i = 0; i < bufferLength; i++) {
+      sum += dataArray[i] ?? 0;
+    }
+    const audioIntensity = (sum / bufferLength) * this.INV_255;
     const bassIntensity = this.getFrequencyBandIntensity(dataArray, bufferLength, 0, 0.15);
     
-    // Make hue rotation more reactive to bass
+    // Make hue rotation more reactive to bass - fast modulo for 360
     this.hueOffset = (this.hueOffset + 0.5 + bassIntensity * 2) % 360;
+    if (this.hueOffset < 0) this.hueOffset += 360;
 
     // Calculate audio metrics (already calculated above, reuse)
     const midIntensity = this.getFrequencyBandIntensity(dataArray, bufferLength, 0.3, 0.6);
@@ -100,8 +111,11 @@ export class KaleidoscopeRenderer {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // More kaleidoscopic: Increase base and max segments for more complex patterns
-    const targetSegments = Math.floor(12 + bassIntensity * 20);
-    if (Math.abs(this.segments - targetSegments) > 0 && this.time % 5 === 0) {
+    const targetSegments = (12 + bassIntensity * 20) | 0;
+    // Use bitwise AND for modulo check (faster for powers of 2, but 5 is not power of 2)
+    // However, we can optimize the abs check
+    const diff = this.segments - targetSegments;
+    if ((diff !== 0) && ((this.time % 5) === 0)) {
       this.segments = targetSegments;
     }
 
@@ -115,7 +129,7 @@ export class KaleidoscopeRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
-    const segmentAngle = (Math.PI * 2) / this.segments;
+    const segmentAngle = this.TWO_PI / this.segments;
 
     for (let i = 0; i < this.segments; i++) {
       ctx.save();
@@ -123,8 +137,8 @@ export class KaleidoscopeRenderer {
       // Rotate to segment position
       ctx.rotate(segmentAngle * i);
 
-      // Mirror every other segment for true kaleidoscope effect
-      if (i % 2 === 1) {
+      // Mirror every other segment - use bitwise for even/odd check
+      if (i & 1) {
         ctx.scale(1, -1);
       }
 
@@ -150,13 +164,15 @@ export class KaleidoscopeRenderer {
     startRatio: number,
     endRatio: number
   ): number {
-    const startIndex = Math.floor(bufferLength * startRatio);
-    const endIndex = Math.floor(bufferLength * endRatio);
+    const startIndex = (bufferLength * startRatio) | 0;
+    const endIndex = (bufferLength * endRatio) | 0;
+    const count = endIndex - startIndex;
+    if (count <= 0) return 0;
     let sum = 0;
     for (let i = startIndex; i < endIndex; i++) {
       sum += dataArray[i] ?? 0;
     }
-    return sum / (endIndex - startIndex) / 255;
+    return (sum / count) * this.INV_255;
   }
 
   private drawSegment(
@@ -166,16 +182,18 @@ export class KaleidoscopeRenderer {
     trebleIntensity: number
   ): void {
     const ctx = this.offscreenCtx;
-    const segmentAngle = (Math.PI * 2) / this.segments;
+    const segmentAngle = this.TWO_PI / this.segments;
 
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
-    // Clip to one segment (a triangle from center)
+    // Clip to one segment (a triangle from center) - optimize cos(0) = 1, sin(0) = 0
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    ctx.lineTo(Math.cos(0) * this.maxRadius, Math.sin(0) * this.maxRadius);
-    ctx.lineTo(Math.cos(segmentAngle) * this.maxRadius, Math.sin(segmentAngle) * this.maxRadius);
+    ctx.lineTo(this.maxRadius, 0);
+    const cosSA = Math.cos(segmentAngle);
+    const sinSA = Math.sin(segmentAngle);
+    ctx.lineTo(cosSA * this.maxRadius, sinSA * this.maxRadius);
     ctx.closePath();
     ctx.clip();
 
@@ -210,24 +228,34 @@ export class KaleidoscopeRenderer {
   ): void {
     // Scale ray count based on quality for performance
     const baseRayCount = 20;
-    const rayCount = Math.floor(baseRayCount * this.qualityScale);
+    const rayCount = (baseRayCount * this.qualityScale) | 0;
 
     for (let i = 0; i < rayCount; i++) {
-      // Make ray angles more reactive to audio
-      const baseAngle = (segmentAngle * i) / rayCount;
-      const angle = baseAngle + Math.sin(this.time * 0.05 + i + bassIntensity * 2) * 0.1 * bassIntensity;
+      // Make ray angles more reactive to audio - cache sin calculations
+      const baseAngle = segmentAngle * i / rayCount;
+      const sinTime1 = Math.sin(this.time * 0.05 + i + bassIntensity * 2);
+      const angle = baseAngle + sinTime1 * 0.1 * bassIntensity;
       // Shorter rays since pivot is closer - more efficient
-      const length = this.maxRadius * (0.7 + Math.sin(this.time * 0.03 + i + bassIntensity * 3) * 0.1 + bassIntensity * 0.2);
-      const width = (2 + bassIntensity * 10) * (1 + Math.sin(this.time * 0.05 + i + bassIntensity * 2) * 0.4);
+      const sinTime2 = Math.sin(this.time * 0.03 + i + bassIntensity * 3);
+      const length = this.maxRadius * (0.7 + sinTime2 * 0.1 + bassIntensity * 0.2);
+      const width = (2 + bassIntensity * 10) * (1 + sinTime1 * 0.4);
 
-      const endX = Math.cos(angle) * length;
-      const endY = Math.sin(angle) * length;
+      // Cache cos/sin for angle
+      const cosAngle = Math.cos(angle);
+      const sinAngle = Math.sin(angle);
+      const endX = cosAngle * length;
+      const endY = sinAngle * length;
 
       // Create colorful gradient
       const gradient = ctx.createLinearGradient(0, 0, endX, endY);
-      const hue1 = (this.hueOffset + i * 45 + this.time * 0.5) % 360;
-      const hue2 = (hue1 + 60) % 360;
-      const hue3 = (hue1 + 120) % 360;
+      // Fast modulo for hue calculations
+      let hue1 = this.hueOffset + i * 45 + this.time * 0.5;
+      hue1 = hue1 % 360;
+      if (hue1 < 0) hue1 += 360;
+      let hue2 = hue1 + 60;
+      if (hue2 >= 360) hue2 -= 360;
+      let hue3 = hue1 + 120;
+      if (hue3 >= 360) hue3 -= 360;
 
       // Dimmed colors - further reduced
       gradient.addColorStop(0, `hsla(${hue1}, 45%, ${25 + audioIntensity * 15}%, ${0.25 + bassIntensity * 0.2})`);
@@ -266,7 +294,10 @@ export class KaleidoscopeRenderer {
       ctx.save();
       ctx.translate(particle.x, particle.y);
 
-      const hue = (particle.hue + this.hueOffset) % 360;
+      // Fast modulo for hue
+      let hue = particle.hue + this.hueOffset;
+      hue = hue % 360;
+      if (hue < 0) hue += 360;
       ctx.fillStyle = `hsla(${hue}, 45%, ${28 + trebleIntensity * 15}%, ${alpha * 0.5})`;
       ctx.shadowBlur = 8 + trebleIntensity * 12;
       ctx.shadowColor = `hsla(${hue}, 45%, 32%, ${alpha * 0.4})`;
@@ -275,8 +306,10 @@ export class KaleidoscopeRenderer {
       ctx.arc(0, 0, size, 0, Math.PI * 2);
       ctx.fill();
 
-      // Draw inner bright core - dimmed
-      ctx.fillStyle = `hsla(${(hue + 30) % 360}, 45%, 38%, ${alpha * 0.35})`;
+      // Draw inner bright core - dimmed - fast modulo
+      let hue2 = hue + 30;
+      if (hue2 >= 360) hue2 -= 360;
+      ctx.fillStyle = `hsla(${hue2}, 45%, 38%, ${alpha * 0.35})`;
       ctx.shadowBlur = 5;
       ctx.beginPath();
       ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2);
@@ -294,7 +327,7 @@ export class KaleidoscopeRenderer {
     trebleIntensity: number
   ): void {
     // More kaleidoscopic: More circles for complex patterns
-    const circles = Math.floor(6 * this.qualityScale);
+    const circles = (6 * this.qualityScale) | 0;
 
     for (let i = 0; i < circles; i++) {
       // Make circles more reactive to audio
@@ -302,7 +335,10 @@ export class KaleidoscopeRenderer {
       const pulse = Math.sin(this.time * 0.08 + i + midIntensity * 2) * (10 + midIntensity * 15);
       const currentRadius = radius + pulse + midIntensity * 30;
 
-      const hue = (this.hueOffset + i * 60 + this.time) % 360;
+      // Fast modulo for hue
+      let hue = this.hueOffset + i * 60 + this.time;
+      hue = hue % 360;
+      if (hue < 0) hue += 360;
 
       ctx.save();
       ctx.strokeStyle = `hsla(${hue}, 45%, ${25 + trebleIntensity * 15}%, ${0.15 + audioIntensity * 0.15})`;
@@ -324,16 +360,21 @@ export class KaleidoscopeRenderer {
     ctx.save();
     ctx.rotate(rotation);
 
-    const hue = (this.hueOffset + this.time * 2) % 360;
+      // Fast modulo for hue
+      let hue = this.hueOffset + this.time * 2;
+      hue = hue % 360;
+      if (hue < 0) hue += 360;
     ctx.strokeStyle = `hsla(${hue}, 45%, ${28 + midIntensity * 15}%, ${0.2 + audioIntensity * 0.2})`;
     ctx.fillStyle = `hsla(${hue}, 45%, ${25 + audioIntensity * 15}%, ${0.08 + trebleIntensity * 0.12})`;
     ctx.lineWidth = 3 + trebleIntensity * 6;
     ctx.shadowBlur = 8 + audioIntensity * 15;
     ctx.shadowColor = `hsla(${hue}, 45%, 30%, ${0.25 + audioIntensity * 0.2})`;
 
+    // Pre-calculate angle increment
+    const angleStep = this.TWO_PI / sides;
     ctx.beginPath();
     for (let i = 0; i <= sides; i++) {
-      const angle = (Math.PI * 2 * i) / sides;
+      const angle = angleStep * i;
       const x = Math.cos(angle) * polygonRadius;
       const y = Math.sin(angle) * polygonRadius;
       if (i === 0) {
@@ -357,7 +398,7 @@ export class KaleidoscopeRenderer {
     segmentAngle: number
   ): void {
     // More kaleidoscopic: Add additional nested patterns for depth
-    const layerCount = Math.floor(3 * this.qualityScale);
+    const layerCount = (3 * this.qualityScale) | 0;
     
     for (let layer = 0; layer < layerCount; layer++) {
       const layerScale = 0.3 + layer * 0.2;
@@ -372,16 +413,22 @@ export class KaleidoscopeRenderer {
       const starRadius = layerRadius * 0.6;
       const innerRadius = starRadius * 0.4;
       
-      const hue = (this.hueOffset + layer * 40 + this.time * 0.5) % 360;
+      // Fast modulo for hue
+      let hue = this.hueOffset + layer * 40 + this.time * 0.5;
+      hue = hue % 360;
+      if (hue < 0) hue += 360;
       ctx.strokeStyle = `hsla(${hue}, 45%, ${25 + midIntensity * 12}%, ${0.15 + audioIntensity * 0.1})`;
       ctx.lineWidth = 1.5 + trebleIntensity * 2;
       ctx.shadowBlur = 5 + audioIntensity * 10;
       ctx.shadowColor = `hsla(${hue}, 45%, 28%, ${0.2 + audioIntensity * 0.15})`;
       
+      // Pre-calculate angle step and use bitwise for even/odd check
+      const angleStep = Math.PI / starPoints;
       ctx.beginPath();
       for (let i = 0; i <= starPoints * 2; i++) {
-        const angle = (Math.PI * i) / starPoints;
-        const radius = i % 2 === 0 ? starRadius : innerRadius;
+        const angle = angleStep * i;
+        // Use bitwise AND for even check (faster than modulo)
+        const radius = (i & 1) === 0 ? starRadius : innerRadius;
         const x = Math.cos(angle) * radius;
         const y = Math.sin(angle) * radius;
         if (i === 0) {
@@ -398,7 +445,7 @@ export class KaleidoscopeRenderer {
   }
 
   private updateParticles(audioIntensity: number, bassIntensity: number): void {
-    const segmentAngle = (Math.PI * 2) / this.segments;
+    const segmentAngle = this.TWO_PI / this.segments;
 
     this.particles.forEach((particle) => {
       // Update position - more reactive to audio
@@ -406,20 +453,24 @@ export class KaleidoscopeRenderer {
       particle.x += particle.vx * speedMultiplier;
       particle.y += particle.vy * speedMultiplier;
 
-      // Add rotation - more reactive to bass
+      // Add rotation - more reactive to bass - optimize sqrt with x*x + y*y
       const angle = Math.atan2(particle.y, particle.x);
-      const radius = Math.sqrt(particle.x ** 2 + particle.y ** 2);
+      const x2 = particle.x * particle.x;
+      const y2 = particle.y * particle.y;
+      const radius = Math.sqrt(x2 + y2);
       const rotationSpeed = 0.01 * (1 + audioIntensity * 2 + bassIntensity * 1.5);
       const newAngle = angle + rotationSpeed;
-      particle.x = Math.cos(newAngle) * radius;
-      particle.y = Math.sin(newAngle) * radius;
+      const cosNA = Math.cos(newAngle);
+      const sinNA = Math.sin(newAngle);
+      particle.x = cosNA * radius;
+      particle.y = sinNA * radius;
 
       // Decay life
       particle.life -= 0.005;
 
-      // Keep within segment bounds
+      // Keep within segment bounds - use TWO_PI constant
       let particleAngle = Math.atan2(particle.y, particle.x);
-      if (particleAngle < 0) particleAngle += Math.PI * 2;
+      if (particleAngle < 0) particleAngle += this.TWO_PI;
 
       if (particleAngle > segmentAngle) {
         particleAngle = segmentAngle - (particleAngle - segmentAngle);
@@ -429,13 +480,16 @@ export class KaleidoscopeRenderer {
         particle.vy *= -0.8;
       }
 
-      // Respawn dead particles
+      // Respawn dead particles - cache random and trig calculations
       if (particle.life <= 0 || radius > this.maxRadius * 0.6) {
         const newAngle = Math.random() * segmentAngle;
         const newRadius = Math.random() * 50;
-        particle.x = Math.cos(newAngle) * newRadius;
-        particle.y = Math.sin(newAngle) * newRadius;
-        particle.vx = (Math.random() - 0.5) * 2;
+        const cosNA = Math.cos(newAngle);
+        const sinNA = Math.sin(newAngle);
+        particle.x = cosNA * newRadius;
+        particle.y = sinNA * newRadius;
+        const rand1 = Math.random() - 0.5;
+        particle.vx = rand1 * 2;
         particle.vy = (Math.random() - 0.5) * 2;
         particle.life = 1;
         particle.hue = Math.random() * 360;
@@ -447,8 +501,9 @@ export class KaleidoscopeRenderer {
   resize(width: number, height: number): void {
     // Performance optimization: Scale quality based on screen size
     const screenArea = width * height;
-    if (screenArea > 1920 * 1080) {
-      this.qualityScale = Math.min(0.7, 1920 * 1080 / screenArea);
+    const threshold = 2073600; // 1920 * 1080 pre-calculated
+    if (screenArea > threshold) {
+      this.qualityScale = threshold / screenArea < 0.7 ? threshold / screenArea : 0.7;
     } else {
       this.qualityScale = 1;
     }
@@ -459,8 +514,9 @@ export class KaleidoscopeRenderer {
     this.canvas.height = height;
     this.offscreenCanvas.width = width;
     this.offscreenCanvas.height = height;
-    this.centerX = width / 2;
-    this.centerY = height / 2;
+    // Use multiplication by 0.5 instead of division
+    this.centerX = width * 0.5;
+    this.centerY = height * 0.5;
     
     // Shorter radius for closer pivot - use smaller dimension with multiplier for efficiency
     // This brings the pivot closer to screen and reduces rendering load
