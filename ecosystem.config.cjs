@@ -7,7 +7,7 @@ module.exports = {
       // ============================================
       // PRODUCTION CONFIGURATION
       // ============================================
-      name: 'starchild-music-frontend-prod',
+      name: 'starchild-next',
       script: 'node_modules/next/dist/bin/next',
       args: 'start --port 3222 --update-env',
 
