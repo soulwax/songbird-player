@@ -64,11 +64,11 @@ export class FlowFieldRenderer {
   private currentPattern: Pattern = "rays";
   private nextPattern: Pattern = "fractal";
   private patternTimer = 0;
-  private patternDuration = 600;
+  private patternDuration = 300; // Halved from 600 to 300
   private transitionProgress = 0;
   private transitionSpeed = 0.015;
   private isTransitioning = false;
-  private patternSequence: Pattern[] = [
+  private allPatterns: Pattern[] = [
     "rays",
     "galaxy",
     "fractal",
@@ -92,6 +92,7 @@ export class FlowFieldRenderer {
     "spirograph",
     "constellation",
   ];
+  private patternSequence: Pattern[] = [];
   private patternIndex = 0;
 
   private fractalZoom = 1;
@@ -138,9 +139,19 @@ export class FlowFieldRenderer {
     this.centerX = this.width / 2;
     this.centerY = this.height / 2;
 
+    this.shufflePatterns();
     this.initializeParticles();
     this.initializeBubbles();
     this.initializeVoronoiSeeds();
+  }
+
+  private shufflePatterns(): void {
+    // Fisher-Yates shuffle algorithm
+    this.patternSequence = [...this.allPatterns];
+    for (let i = this.patternSequence.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this.patternSequence[i], this.patternSequence[j]] = [this.patternSequence[j]!, this.patternSequence[i]!];
+    }
   }
 
   private initializeParticles(): void {
@@ -273,7 +284,7 @@ export class FlowFieldRenderer {
 
   private updatePatternTransition(audioIntensity: number): void {
     const dynamicDuration = Math.max(
-      300,
+      150, // Halved from 300 to 150
       this.patternDuration - audioIntensity * 200,
     );
 
@@ -295,6 +306,12 @@ export class FlowFieldRenderer {
       this.isTransitioning = true;
       this.transitionProgress = 0;
       this.patternIndex = (this.patternIndex + 1) % this.patternSequence.length;
+
+      // Re-shuffle when we complete a full cycle
+      if (this.patternIndex === 0) {
+        this.shufflePatterns();
+      }
+
       this.nextPattern = this.patternSequence[this.patternIndex] ?? "rays";
     }
   }
