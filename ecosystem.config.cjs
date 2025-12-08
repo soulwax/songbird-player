@@ -143,9 +143,9 @@ module.exports = {
       // ============================================
       // ENVIRONMENT & VARIABLES
       // ============================================
-      env: {
+      env_development: {
         NODE_ENV: 'development',
-        PORT: process.env.PORT || 3412,
+        PORT: 3412, // Use fixed port 3412 for dev
       },
 
       // ============================================
@@ -170,7 +170,7 @@ module.exports = {
       // Enable watch in development for hot reload
       watch: true,
       watch_delay: 1000,
-      ignore_watch: ['node_modules', 'logs', '.next', '.git', 'dist'],
+      ignore_watch: ['node_modules', 'logs', '.next', '.git', 'dist', 'ecosystem.config.cjs', 'package.json'],
 
       // ============================================
       // ADVANCED OPTIONS
