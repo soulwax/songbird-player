@@ -5,6 +5,29 @@ All notable changes to Starchild Music will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2025-12-09
+
+### Added
+
+#### Logging Enhancements
+
+- **Ecosystem Configuration Logging**: Enhanced logging capabilities for PM2 ecosystem management
+  - Comprehensive logging configuration for production and development environments
+  - Separate log files for error, output, and combined logs
+  - Timestamp formatting for better log traceability
+  - Log file organization in dedicated PM2 logs directory
+
+## [0.5.1] - 2025-12-09
+
+### Added
+
+#### Logging Enhancements
+
+- **Visual Component Logging**: Added comprehensive logging for visual components and visualizer patterns
+  - Logging for visual pattern transitions and rendering
+  - Performance metrics logging for visual effects
+  - Debug logging for visual component state changes
+
 ## [0.5.0] - 2025-12-09
 
 ### Added
