@@ -5,15 +5,15 @@ All notable changes to Starchild Music will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.3] - 2025-12-09
+## [0.5.2] - 2025-12-09
 
 ### Changed
 
-- Version bump to 0.5.3
-
-## [0.5.2] - 2025-12-09
-
-### Added
+- Voronoi pattern smoothing & soothing
+- Removed Plasma pattern completely, it was out of place, too in your face
+- Bubble pattern replaced with The Orb
+- Flow field pattern optimized for performance
+- Reduced Mandala fidelity, layering and symmetry. Sometimes less is more.
 
 #### Logging Enhancements
 
@@ -24,14 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Log file organization in dedicated PM2 logs directory
 
 ## [0.5.1] - 2025-12-09
-
-### Changed
-
-- Voronoi pattern smoothing & soothing
-- Removed Plasma pattern completely, it was out of place, too in your face
-- Bubble pattern replaced with The Orb
-- Flow field pattern optimized for performance
-- Reduced Mandala fidelity, layering and symmetry. Sometimes less is more.
 
 #### Logging Enhancements & Visualizer Pattern Changes
 
