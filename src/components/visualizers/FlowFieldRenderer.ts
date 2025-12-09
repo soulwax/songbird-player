@@ -2163,7 +2163,7 @@ export class FlowFieldRenderer {
     );
 
     this.time += 1;
-    this.hueBase = (this.hueBase + 0.5 + bassIntensity * 2.5) % 360; // Faster color changes
+    this.hueBase = (this.hueBase + 0.3 + bassIntensity * 1.5) % 360;
 
     this.updatePatternTransition(audioIntensity);
 
