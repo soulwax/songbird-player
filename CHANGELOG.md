@@ -5,7 +5,7 @@ All notable changes to Starchild Music will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.2] - 2025-12-09
+## [0.5.3] - 2025-12-09
 
 ### Changed
 
@@ -14,6 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bubble pattern replaced with The Orb
 - Flow field pattern optimized for performance
 - Reduced Mandala fidelity, layering and symmetry. Sometimes less is more.
+
+#### Logging Enhancements
+
+- **Ecosystem Configuration Logging**: Enhanced logging capabilities for PM2 ecosystem management
+  - Better allround logging configuration for production and development environments
+  - Separate log files for error, output, and combined logs
+  - Timestamp formatting for better log traceability
+  - Log file organization in dedicated PM2 logs directory
+
+## [0.5.2] - 2025-12-09
+
+### Added
 
 #### Logging Enhancements
 

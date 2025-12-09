@@ -16,7 +16,9 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { FlowFieldBackground } from "./FlowFieldBackground";
 import { LightweightParticleBackground } from "./LightweightParticleBackground";
+import PatternControls from "./PatternControls";
 import MaturePlayer from "./Player";
+import type { FlowFieldRenderer } from "./visualizers/FlowFieldRenderer";
 
 const Equalizer = dynamic(
   () => import("./Equalizer").then((mod) => mod.Equalizer),
@@ -54,6 +56,8 @@ export default function PersistentPlayer() {
   const [showQueue, setShowQueue] = useState(false);
   const [showEqualizer, setShowEqualizer] = useState(false);
   const [visualizerEnabled, setVisualizerEnabled] = useState(true);
+  const [showPatternControls, setShowPatternControls] = useState(false);
+  const [renderer, setRenderer] = useState<FlowFieldRenderer | null>(null);
 
   // Sync state with database preferences when they load
   useEffect(() => {
@@ -181,6 +185,9 @@ export default function PersistentPlayer() {
     onToggleEqualizer: () => setShowEqualizer(!showEqualizer),
     onToggleVisualizer: !isMobile ? handleVisualizerToggle : undefined,
     visualizerEnabled,
+    onTogglePatternControls: !isMobile
+      ? () => setShowPatternControls(!showPatternControls)
+      : undefined,
   };
 
   return (
@@ -240,6 +247,15 @@ export default function PersistentPlayer() {
         <FlowFieldBackground
           audioElement={player.audioElement}
           isPlaying={player.isPlaying}
+          onRendererReady={setRenderer}
+        />
+      )}
+
+      {/* Pattern Controls Panel - Desktop only */}
+      {!isMobile && showPatternControls && (
+        <PatternControls
+          renderer={renderer}
+          onClose={() => setShowPatternControls(false)}
         />
       )}
 

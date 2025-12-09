@@ -8,11 +8,13 @@ import { FlowFieldRenderer } from "./visualizers/FlowFieldRenderer";
 interface FlowFieldBackgroundProps {
   audioElement: HTMLAudioElement | null;
   isPlaying: boolean;
+  onRendererReady?: (renderer: FlowFieldRenderer | null) => void;
 }
 
 export function FlowFieldBackground({
   audioElement,
   isPlaying,
+  onRendererReady,
 }: FlowFieldBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<FlowFieldRenderer | null>(null);
@@ -61,6 +63,7 @@ export function FlowFieldBackground({
       } else {
         rendererRef.current = new FlowFieldRenderer(canvas);
       }
+      onRendererReady?.(rendererRef.current);
     };
 
     updateSize();
@@ -68,9 +71,10 @@ export function FlowFieldBackground({
 
     return () => {
       window.removeEventListener("resize", updateSize);
+      onRendererReady?.(null);
       rendererRef.current = null;
     };
-  }, []);
+  }, [onRendererReady]);
 
   // Animation loop
   useEffect(() => {

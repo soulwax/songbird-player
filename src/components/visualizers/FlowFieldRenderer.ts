@@ -6942,4 +6942,102 @@ export class FlowFieldRenderer {
 
     ctx.restore();
   }
+
+  // Public API for pattern controls
+  public getCurrentPattern(): Pattern {
+    return this.currentPattern;
+  }
+
+  public getNextPattern(): Pattern {
+    return this.nextPattern;
+  }
+
+  public getFormattedPatternName(pattern: Pattern): string {
+    return this.formatPatternName(pattern);
+  }
+
+  public getPatternDuration(): number {
+    return this.patternDuration;
+  }
+
+  public setPatternDuration(value: number): void {
+    this.patternDuration = Math.max(50, Math.min(1000, value));
+  }
+
+  public getTransitionSpeed(): number {
+    return this.transitionSpeed;
+  }
+
+  public setTransitionSpeed(value: number): void {
+    this.transitionSpeed = Math.max(0.001, Math.min(0.1, value));
+  }
+
+  public getFractalZoom(): number {
+    return this.fractalZoom;
+  }
+
+  public setFractalZoom(value: number): void {
+    this.fractalZoom = Math.max(0.1, Math.min(10, value));
+  }
+
+  public getFractalOffsetX(): number {
+    return this.fractalOffsetX;
+  }
+
+  public setFractalOffsetX(value: number): void {
+    this.fractalOffsetX = value;
+  }
+
+  public getFractalOffsetY(): number {
+    return this.fractalOffsetY;
+  }
+
+  public setFractalOffsetY(value: number): void {
+    this.fractalOffsetY = value;
+  }
+
+  public getJuliaC(): { re: number; im: number } {
+    return { ...this.juliaC };
+  }
+
+  public setJuliaC(re: number, im: number): void {
+    this.juliaC.re = re;
+    this.juliaC.im = im;
+  }
+
+  public getHueBase(): number {
+    return this.hueBase;
+  }
+
+  public setHueBase(value: number): void {
+    this.hueBase = value % 360;
+  }
+
+  public getPatternState(): {
+    currentPattern: Pattern;
+    nextPattern: Pattern;
+    patternDuration: number;
+    transitionSpeed: number;
+    transitionProgress: number;
+    isTransitioning: boolean;
+    fractalZoom: number;
+    fractalOffsetX: number;
+    fractalOffsetY: number;
+    juliaC: { re: number; im: number };
+    hueBase: number;
+  } {
+    return {
+      currentPattern: this.currentPattern,
+      nextPattern: this.nextPattern,
+      patternDuration: this.patternDuration,
+      transitionSpeed: this.transitionSpeed,
+      transitionProgress: this.transitionProgress,
+      isTransitioning: this.isTransitioning,
+      fractalZoom: this.fractalZoom,
+      fractalOffsetX: this.fractalOffsetX,
+      fractalOffsetY: this.fractalOffsetY,
+      juliaC: { ...this.juliaC },
+      hueBase: this.hueBase,
+    };
+  }
 }

@@ -3,6 +3,10 @@
 import { env } from "@/env";
 import { type NextRequest, NextResponse } from "next/server";
 
+// Force dynamic rendering for streaming route
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const query = searchParams.get("q");
