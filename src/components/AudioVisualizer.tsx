@@ -275,6 +275,7 @@ export function AudioVisualizer({
 
   // Kaleidoscope renderer instance
   const kaleidoscopeRendererRef = useRef<KaleidoscopeRenderer | null>(null);
+  const lastLoggedTypeRef = useRef<VisualizerType | null>(null);
 
   const visualizer = useAudioVisualizer(audioElement, {
     fftSize: 2048,
@@ -515,8 +516,12 @@ export function AudioVisualizer({
     if (!ctx) return;
 
     const renderFrame = (data: Uint8Array) => {
+      // Log visualizer type change
+      if (lastLoggedTypeRef.current !== currentType) {
+        console.log(`[Visualizer] Currently rendering: ${currentType}`);
+        lastLoggedTypeRef.current = currentType;
+      }
       // Render kaleidoscope visualization with audio data
-      console.log(`[Visualizer] Currently rendering: ${currentType}`);
       kaleidoscopeRendererRef.current?.render(data, data.length);
     };
 
@@ -531,7 +536,7 @@ export function AudioVisualizer({
     return () => {
       visualizer.stopVisualization();
     };
-  }, [isPlaying, visualizer]);
+  }, [isPlaying, visualizer, currentType]);
 
   if (!visualizer.isInitialized) {
     return (
