@@ -25,6 +25,8 @@ interface Bubble {
   maxAge: number;
   popping: boolean;
   popProgress: number;
+  symbolType: number; // Occult symbol type (0-7)
+  rotation: number; // Rotation angle for symbol
 }
 
 type Pattern =
@@ -37,7 +39,6 @@ type Pattern =
   | "swarm"
   | "mandala"
   | "dna"
-  | "plasma"
   | "galaxy"
   | "matrix"
   | "lightning"
@@ -109,7 +110,7 @@ export class FlowFieldRenderer {
   private currentPattern: Pattern = "rays";
   private nextPattern: Pattern = "fractal";
   private patternTimer = 0;
-  private patternDuration = 300; // Halved from 600 to 300
+  private patternDuration = 100; // Halved from 600 to 300
   private transitionProgress = 0;
   private transitionSpeed = 0.015;
   private isTransitioning = false;
@@ -133,7 +134,6 @@ export class FlowFieldRenderer {
     "rings",
     "dna",
     "fluid",
-    "plasma",
     "hexgrid",
     "spirograph",
     "constellation",
@@ -311,17 +311,24 @@ export class FlowFieldRenderer {
   }
 
   private createBubble(): Bubble {
+    // Mystical color palette: deep purples, dark blues, crimson reds
+    const mysticalHues = [270, 280, 290, 240, 250, 0, 330, 340];
+    const baseHue = mysticalHues[Math.floor(Math.random() * mysticalHues.length)] ?? 270;
+    const hue = baseHue + (Math.random() - 0.5) * 20;
+    
     return {
       x: Math.random() * this.width,
       y: this.height + Math.random() * 100,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: -(0.5 + Math.random() * 1.5),
-      radius: 10 + Math.random() * 40,
-      hue: Math.random() * 360,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: -(0.3 + Math.random() * 1.0),
+      radius: 15 + Math.random() * 35,
+      hue: hue % 360,
       age: 0,
-      maxAge: 300 + Math.random() * 300,
+      maxAge: 400 + Math.random() * 400,
       popping: false,
       popProgress: 0,
+      symbolType: Math.floor(Math.random() * 8), // 8 different occult symbols
+      rotation: Math.random() * Math.PI * 2,
     };
   }
 
@@ -645,6 +652,153 @@ export class FlowFieldRenderer {
     ctx.restore();
   }
 
+  private drawOccultSymbol(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    symbolType: number,
+    rotation: number,
+    hue: number,
+    alpha: number,
+  ): void {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = `hsla(${hue}, 90%, 70%, ${alpha})`;
+    ctx.fillStyle = `hsla(${hue}, 80%, 50%, ${alpha * 0.2})`;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    switch (symbolType % 8) {
+      case 0: // Pentagram
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const angle = (i / 5) * Math.PI * 2 - Math.PI / 2;
+          const r = size * 0.4;
+          const x1 = Math.cos(angle) * r;
+          const y1 = Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(x1, y1);
+          else ctx.lineTo(x1, y1);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+
+      case 1: // Rune (Algiz - protection)
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 0.5);
+        ctx.lineTo(0, size * 0.5);
+        ctx.moveTo(-size * 0.2, -size * 0.3);
+        ctx.lineTo(size * 0.2, -size * 0.3);
+        ctx.moveTo(-size * 0.15, size * 0.2);
+        ctx.lineTo(size * 0.15, size * 0.2);
+        ctx.stroke();
+        break;
+
+      case 2: // Hexagram (Star of David)
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+          const r = size * 0.4;
+          const x1 = Math.cos(angle) * r;
+          const y1 = Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(x1, y1);
+          else ctx.lineTo(x1, y1);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const angle = (i / 6) * Math.PI * 2 + Math.PI / 6 - Math.PI / 2;
+          const r = size * 0.4;
+          const x1 = Math.cos(angle) * r;
+          const y1 = Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(x1, y1);
+          else ctx.lineTo(x1, y1);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        break;
+
+      case 3: // Sigil (circular with lines)
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2);
+        ctx.stroke();
+        for (let i = 0; i < 8; i++) {
+          const angle = (i / 8) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(
+            Math.cos(angle) * size * 0.35,
+            Math.sin(angle) * size * 0.35,
+          );
+          ctx.stroke();
+        }
+        break;
+
+      case 4: // Eye (all-seeing eye)
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size * 0.4, size * 0.25, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.08, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${hue}, 100%, 90%, ${alpha})`;
+        ctx.fill();
+        break;
+
+      case 5: // Ankh
+        ctx.beginPath();
+        ctx.arc(0, -size * 0.2, size * 0.2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 0.4);
+        ctx.lineTo(0, size * 0.5);
+        ctx.moveTo(-size * 0.25, size * 0.2);
+        ctx.lineTo(size * 0.25, size * 0.2);
+        ctx.stroke();
+        break;
+
+      case 6: // Triple moon
+        ctx.beginPath();
+        ctx.arc(-size * 0.25, 0, size * 0.15, Math.PI / 2, -Math.PI / 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.2, -Math.PI / 2, Math.PI / 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(size * 0.25, 0, size * 0.15, Math.PI / 2, -Math.PI / 2);
+        ctx.stroke();
+        break;
+
+      case 7: // Sacred geometry triangle
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 0.4);
+        ctx.lineTo(-size * 0.35, size * 0.3);
+        ctx.lineTo(size * 0.35, size * 0.3);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, size * 0.3);
+        ctx.lineTo(0, -size * 0.2);
+        ctx.moveTo(-size * 0.2, size * 0.05);
+        ctx.lineTo(size * 0.2, size * 0.05);
+        ctx.stroke();
+        break;
+    }
+
+    ctx.restore();
+  }
+
   private renderBubbles(
     audioIntensity: number,
     bassIntensity: number,
@@ -652,7 +806,8 @@ export class FlowFieldRenderer {
   ): void {
     const ctx = this.ctx;
 
-    if (bassIntensity > 0.5 && Math.random() > 0.8) {
+    // Spawn mystical orbs on bass hits
+    if (bassIntensity > 0.4 && Math.random() > 0.85) {
       this.bubbles.push(this.createBubble());
     }
 
@@ -661,44 +816,48 @@ export class FlowFieldRenderer {
       if (!bubble) continue;
 
       if (bubble.popping) {
-        bubble.popProgress += 0.1 + trebleIntensity * 0.1;
+        bubble.popProgress += 0.08 + trebleIntensity * 0.08;
 
         if (bubble.popProgress >= 1) {
           this.bubbles.splice(i, 1);
           continue;
         }
 
+        // Mystical dissipation effect
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
 
-        const shardCount = 12;
-        for (let s = 0; s < shardCount; s++) {
-          const angle = (s / shardCount) * Math.PI * 2;
-          const dist = bubble.radius * bubble.popProgress * 2;
+        const particleCount = 16;
+        for (let s = 0; s < particleCount; s++) {
+          const angle = (s / particleCount) * Math.PI * 2;
+          const dist = bubble.radius * bubble.popProgress * 2.5;
           const x = bubble.x + Math.cos(angle) * dist;
           const y = bubble.y + Math.sin(angle) * dist;
 
-          const gradient = ctx.createRadialGradient(x, y, 0, x, y, 5);
+          const gradient = ctx.createRadialGradient(x, y, 0, x, y, 8);
           gradient.addColorStop(
             0,
-            `hsla(${bubble.hue}, 90%, 70%, ${1 - bubble.popProgress})`,
+            `hsla(${bubble.hue}, 100%, 60%, ${(1 - bubble.popProgress) * 0.8})`,
           );
-          gradient.addColorStop(1, `hsla(${bubble.hue}, 80%, 60%, 0)`);
+          gradient.addColorStop(1, `hsla(${bubble.hue}, 80%, 40%, 0)`);
 
           ctx.fillStyle = gradient;
-          ctx.fillRect(x - 5, y - 5, 10, 10);
+          ctx.fillRect(x - 8, y - 8, 16, 16);
         }
 
         ctx.restore();
       } else {
         bubble.age++;
-        bubble.vy -= 0.01;
-        bubble.vx += (Math.random() - 0.5) * 0.1;
-        bubble.vx *= 0.99;
-        bubble.vy *= 0.99;
+        bubble.rotation += 0.01 + audioIntensity * 0.005;
+        
+        // Gentle floating motion
+        bubble.vy -= 0.008;
+        bubble.vx += (Math.random() - 0.5) * 0.05;
+        bubble.vx *= 0.98;
+        bubble.vy *= 0.98;
 
         bubble.x +=
-          bubble.vx + Math.sin(this.time * 0.02 + bubble.y * 0.01) * 0.5;
+          bubble.vx + Math.sin(this.time * 0.015 + bubble.y * 0.01) * 0.3;
         bubble.y += bubble.vy;
 
         if (
@@ -706,88 +865,111 @@ export class FlowFieldRenderer {
           bubble.y < -bubble.radius * 2 ||
           bubble.x < -bubble.radius ||
           bubble.x > this.width + bubble.radius ||
-          (trebleIntensity > 0.7 && Math.random() > 0.95)
+          (trebleIntensity > 0.75 && Math.random() > 0.97)
         ) {
           bubble.popping = true;
           continue;
         }
 
         ctx.save();
+        ctx.globalCompositeOperation = "lighter";
 
-        const glowGradient = ctx.createRadialGradient(
-          bubble.x,
-          bubble.y - bubble.radius * 0.3,
-          0,
+        // Outer mystical glow - darker, more ethereal
+        const outerGlow = ctx.createRadialGradient(
           bubble.x,
           bubble.y,
-          bubble.radius * 1.5,
+          bubble.radius * 0.5,
+          bubble.x,
+          bubble.y,
+          bubble.radius * 2.2,
         );
-        glowGradient.addColorStop(
+        outerGlow.addColorStop(
           0,
-          `hsla(${bubble.hue}, 100%, 80%, ${0.3 + audioIntensity * 0.2})`,
+          `hsla(${bubble.hue}, 100%, 50%, ${0.15 + audioIntensity * 0.1})`,
         );
-        glowGradient.addColorStop(
-          0.6,
-          `hsla(${(bubble.hue + 60) % 360}, 90%, 70%, ${0.15 + audioIntensity * 0.1})`,
+        outerGlow.addColorStop(
+          0.4,
+          `hsla(${(bubble.hue + 30) % 360}, 90%, 40%, ${0.08 + audioIntensity * 0.05})`,
         );
-        glowGradient.addColorStop(
+        outerGlow.addColorStop(
           1,
-          `hsla(${(bubble.hue + 120) % 360}, 80%, 60%, 0)`,
+          `hsla(${(bubble.hue + 60) % 360}, 80%, 30%, 0)`,
         );
 
-        ctx.fillStyle = glowGradient;
+        ctx.fillStyle = outerGlow;
         ctx.beginPath();
-        ctx.arc(bubble.x, bubble.y, bubble.radius * 1.3, 0, Math.PI * 2);
+        ctx.arc(bubble.x, bubble.y, bubble.radius * 2.2, 0, Math.PI * 2);
         ctx.fill();
 
-        const bubbleGradient = ctx.createRadialGradient(
-          bubble.x - bubble.radius * 0.3,
-          bubble.y - bubble.radius * 0.3,
-          bubble.radius * 0.2,
+        // Inner orb - dark, translucent, mystical
+        const orbGradient = ctx.createRadialGradient(
+          bubble.x - bubble.radius * 0.2,
+          bubble.y - bubble.radius * 0.2,
+          bubble.radius * 0.1,
           bubble.x,
           bubble.y,
           bubble.radius,
         );
-        bubbleGradient.addColorStop(0, `hsla(${bubble.hue}, 90%, 85%, 0.4)`);
-        bubbleGradient.addColorStop(
-          0.5,
-          `hsla(${(bubble.hue + 30) % 360}, 85%, 75%, 0.25)`,
+        orbGradient.addColorStop(
+          0,
+          `hsla(${bubble.hue}, 85%, 45%, ${0.25 + audioIntensity * 0.15})`,
         );
-        bubbleGradient.addColorStop(
-          0.9,
-          `hsla(${(bubble.hue + 60) % 360}, 80%, 65%, 0.35)`,
+        orbGradient.addColorStop(
+          0.3,
+          `hsla(${(bubble.hue + 20) % 360}, 80%, 35%, ${0.2 + audioIntensity * 0.1})`,
         );
-        bubbleGradient.addColorStop(
+        orbGradient.addColorStop(
+          0.7,
+          `hsla(${(bubble.hue + 40) % 360}, 75%, 25%, ${0.15 + audioIntensity * 0.08})`,
+        );
+        orbGradient.addColorStop(
           1,
-          `hsla(${(bubble.hue + 90) % 360}, 75%, 55%, 0.5)`,
+          `hsla(${(bubble.hue + 60) % 360}, 70%, 20%, ${0.1 + audioIntensity * 0.05})`,
         );
 
-        ctx.fillStyle = bubbleGradient;
+        ctx.fillStyle = orbGradient;
         ctx.beginPath();
         ctx.arc(bubble.x, bubble.y, bubble.radius, 0, Math.PI * 2);
         ctx.fill();
 
-        const highlightGradient = ctx.createRadialGradient(
-          bubble.x - bubble.radius * 0.4,
-          bubble.y - bubble.radius * 0.4,
+        // Subtle inner glow highlight
+        const innerGlow = ctx.createRadialGradient(
+          bubble.x - bubble.radius * 0.3,
+          bubble.y - bubble.radius * 0.3,
           0,
-          bubble.x - bubble.radius * 0.4,
-          bubble.y - bubble.radius * 0.4,
-          bubble.radius * 0.6,
+          bubble.x - bubble.radius * 0.3,
+          bubble.y - bubble.radius * 0.3,
+          bubble.radius * 0.5,
         );
-        highlightGradient.addColorStop(0, "rgba(255, 255, 255, 0.7)");
-        highlightGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+        innerGlow.addColorStop(
+          0,
+          `hsla(${bubble.hue}, 100%, 60%, ${0.3 + audioIntensity * 0.2})`,
+        );
+        innerGlow.addColorStop(1, `hsla(${bubble.hue}, 90%, 50%, 0)`);
 
-        ctx.fillStyle = highlightGradient;
+        ctx.fillStyle = innerGlow;
         ctx.beginPath();
         ctx.arc(
-          bubble.x - bubble.radius * 0.4,
-          bubble.y - bubble.radius * 0.4,
-          bubble.radius * 0.3,
+          bubble.x - bubble.radius * 0.3,
+          bubble.y - bubble.radius * 0.3,
+          bubble.radius * 0.4,
           0,
           Math.PI * 2,
         );
         ctx.fill();
+
+        // Draw occult symbol inside the orb
+        const symbolAlpha = 0.6 + audioIntensity * 0.3;
+        this.drawOccultSymbol(
+          ctx,
+          bubble.x,
+          bubble.y,
+          bubble.radius * 0.7,
+          bubble.symbolType,
+          bubble.rotation,
+          bubble.hue,
+          symbolAlpha,
+        );
 
         ctx.restore();
       }
@@ -1135,8 +1317,8 @@ export class FlowFieldRenderer {
     midIntensity: number,
   ): void {
     const ctx = this.ctx;
-    const layers = 8;
-    const symmetry = 12;
+    const layers = 3;
+    const symmetry = 6;
 
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
@@ -1144,7 +1326,7 @@ export class FlowFieldRenderer {
 
     for (let layer = 0; layer < layers; layer++) {
       const radius = 50 + layer * 60 + bassIntensity * 40;
-      const petals = 6 + layer * 2;
+      const petals = 4;
       const rotation =
         this.time * 0.001 * (layer % 2 === 0 ? 1 : -1) + midIntensity * Math.PI;
 
@@ -1189,7 +1371,7 @@ export class FlowFieldRenderer {
 
       if (layer % 2 === 0 && layer > 0) {
         const symbolRadius = 50 + layer * 60;
-        const clanCount = 13;
+        const clanCount = 5;
         for (let c = 0; c < clanCount; c++) {
           const angle = (c / clanCount) * Math.PI * 2 + rotation * 0.5;
           const x = Math.cos(angle) * symbolRadius;
@@ -1285,50 +1467,6 @@ export class FlowFieldRenderer {
     ctx.restore();
   }
 
-  private renderPlasma(
-    audioIntensity: number,
-    bassIntensity: number,
-    midIntensity: number,
-  ): void {
-    const ctx = this.ctx;
-    const imageData = ctx.createImageData(this.width, this.height);
-    const data = imageData.data;
-
-    const time = this.time * 0.05;
-    const scale = 0.01 + audioIntensity * 0.005;
-
-    for (let y = 0; y < this.height; y += 2) {
-      for (let x = 0; x < this.width; x += 2) {
-        const v1 = Math.sin(x * scale + time);
-        const v2 = Math.sin((y * scale + time) / 2);
-        const v3 = Math.sin((x * scale + y * scale + time) / 2);
-        const v4 = Math.sin(
-          Math.sqrt((x - this.centerX) ** 2 + (y - this.centerY) ** 2) * scale +
-            time,
-        );
-
-        const plasma = (v1 + v2 + v3 + v4) / 4;
-
-        const hue = (this.hueBase + plasma * 180 + bassIntensity * 60) % 360;
-        const saturation = 70 + midIntensity * 30;
-        const lightness = 40 + plasma * 30 + audioIntensity * 20;
-
-        const rgb = this.hslToRgb(hue / 360, saturation / 100, lightness / 100);
-
-        for (let dy = 0; dy < 2 && y + dy < this.height; dy++) {
-          for (let dx = 0; dx < 2 && x + dx < this.width; dx++) {
-            const idx = ((y + dy) * this.width + (x + dx)) * 4;
-            data[idx] = rgb[0] ?? 0;
-            data[idx + 1] = rgb[1] ?? 0;
-            data[idx + 2] = rgb[2] ?? 0;
-            data[idx + 3] = 255;
-          }
-        }
-      }
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-  }
 
   private renderGalaxy(
     audioIntensity: number,
@@ -1717,7 +1855,7 @@ export class FlowFieldRenderer {
     midIntensity: number,
   ): void {
     const ctx = this.ctx;
-    const curves = 5;
+    const curves = 2;
 
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
@@ -1732,7 +1870,8 @@ export class FlowFieldRenderer {
 
       ctx.beginPath();
 
-      for (let t = 0; t <= Math.PI * 2; t += 0.02) {
+      // Increased step size from 0.02 to 0.08 for better performance and less density
+      for (let t = 0; t <= Math.PI * 2; t += 0.08) {
         const x = Math.sin(a * t + delta) * scale;
         const y = Math.sin(b * t) * scale;
 
@@ -1759,7 +1898,8 @@ export class FlowFieldRenderer {
       );
 
       ctx.strokeStyle = gradient;
-      ctx.lineWidth = 2 + audioIntensity * 4;
+      // Reduced line width from 2 + audioIntensity * 4 to 1.5 + audioIntensity * 2.5
+      ctx.lineWidth = 1.5 + audioIntensity * 2.5;
       ctx.stroke();
     }
 
@@ -2213,7 +2353,23 @@ export class FlowFieldRenderer {
 
     if (this.isTransitioning) {
       const t = this.transitionProgress;
-      const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      
+      // Use gentler easing for Voronoi transitions (smooth ease-in-out)
+      const isVoronoiTransition = 
+        this.currentPattern === "voronoi" || this.nextPattern === "voronoi";
+      
+      let eased: number;
+      if (isVoronoiTransition) {
+        // Smooth ease-in-out for Voronoi: gentler transition
+        eased = t < 0.5 
+          ? 2 * t * t 
+          : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        // Apply additional smoothing for even gentler blend
+        eased = eased * eased * (3 - 2 * eased); // Smoothstep function
+      } else {
+        // Default cubic easing for other patterns
+        eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      }
 
       ctx.save();
       ctx.globalAlpha = 1 - eased;
@@ -2281,9 +2437,6 @@ export class FlowFieldRenderer {
         break;
       case "dna":
         this.renderDNA(audioIntensity, bassIntensity, trebleIntensity);
-        break;
-      case "plasma":
-        this.renderPlasma(audioIntensity, bassIntensity, midIntensity);
         break;
       case "galaxy":
         this.renderGalaxy(audioIntensity, bassIntensity, midIntensity);
