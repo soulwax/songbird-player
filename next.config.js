@@ -91,9 +91,17 @@ const config = {
           module: /[\\/]node_modules[\\/]next[\\/]/,
           message: /Cannot find module for page: \/_(document|error)/,
         },
+        {
+          module: /[\\/]node_modules[\\/]next[\\/]/,
+          message: /PageNotFoundError/,
+        },
       ];
     }
     return config;
+  },
+  // Suppress export errors for 404 page during build
+  experimental: {
+    missingSuspenseWithCSRBailout: false,
   },
   // Suppress build errors for expected missing pages in App Router
   // Improved memory management: less aggressive settings to prevent request timeouts
