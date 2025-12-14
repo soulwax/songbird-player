@@ -3,7 +3,6 @@
 "use client";
 
 import { useGlobalPlayer } from "@/contexts/AudioPlayerContext";
-import { useMobilePanes } from "@/contexts/MobilePanesContext";
 import { hapticLight, hapticMedium } from "@/utils/haptics";
 import { springPresets } from "@/utils/spring-animations";
 import {
@@ -37,7 +36,6 @@ export default function MobileNavigation() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const player = useGlobalPlayer();
-  const { currentPane, navigateToPane } = useMobilePanes();
   const [showQuickActions, setShowQuickActions] = useState(false);
   const dragY = useMotionValue(0);
 
@@ -102,9 +100,6 @@ export default function MobileNavigation() {
     setShowQuickActions(false);
   }, [pathname]);
 
-  // Pane indicator opacity
-  const showPaneIndicator = player.currentTrack && currentPane !== 2;
-
   return (
     <>
       {/* Quick Actions Sheet */}
@@ -135,45 +130,8 @@ export default function MobileNavigation() {
                 </h3>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 px-6 pb-8">
-                {/* Now Playing */}
-                {player.currentTrack && (
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                      hapticLight();
-                      navigateToPane(0);
-                      setShowQuickActions(false);
-                    }}
-                    className="flex flex-col items-center gap-2 rounded-xl bg-[rgba(244,178,102,0.12)] p-4 transition-colors"
-                  >
-                    <Music2 className="h-6 w-6 text-[var(--color-accent)]" />
-                    <span className="text-xs text-[var(--color-text)]">
-                      Now Playing
-                    </span>
-                  </motion.button>
-                )}
-
-                {/* Queue */}
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    hapticLight();
-                    navigateToPane(1);
-                    setShowQuickActions(false);
-                  }}
-                  className="flex flex-col items-center gap-2 rounded-xl bg-[rgba(88,198,177,0.12)] p-4 transition-colors"
-                >
-                  <ListMusic className="h-6 w-6 text-[var(--color-accent-strong)]" />
-                  <span className="text-xs text-[var(--color-text)]">
-                    Queue
-                  </span>
-                  {player.queue.length > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-accent)] text-xs font-bold text-[#0f141d]">
-                      {player.queue.length}
-                    </span>
-                  )}
-                </motion.button>
+              <div className="grid grid-cols-2 gap-4 px-6 pb-8">
+                {/* Quick actions simplified - pane navigation removed */}
 
                 {/* Search */}
                 <motion.button
@@ -322,36 +280,6 @@ export default function MobileNavigation() {
             );
           })}
         </div>
-
-        {/* Pane Navigation Indicator */}
-        <AnimatePresence>
-          {showPaneIndicator && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={springPresets.snappy}
-              className="absolute -top-12 left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full border border-[rgba(244,178,102,0.2)] bg-[rgba(10,16,24,0.9)] px-3 py-1.5 backdrop-blur-md"
-            >
-              {[0, 1, 2].map((pane) => (
-                <motion.button
-                  key={pane}
-                  onClick={() => {
-                    hapticLight();
-                    navigateToPane(pane as 0 | 1 | 2);
-                  }}
-                  className={`h-2 rounded-full transition-all ${
-                    currentPane === pane
-                      ? "w-6 bg-[var(--color-accent)]"
-                      : "w-2 bg-[rgba(255,255,255,0.25)] hover:bg-[rgba(255,255,255,0.4)]"
-                  }`}
-                  whileTap={{ scale: 0.9 }}
-                  transition={springPresets.immediate}
-                />
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.nav>
     </>
   );
