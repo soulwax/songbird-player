@@ -305,17 +305,29 @@ export class FlowFieldRenderer {
 
   private logPatternChange(
     pattern: Pattern,
-    event: "playing" | "transitioning-to" | "transitioned-to",
+    event:
+      | "playing"
+      | "transitioning-to"
+      | "transitioned-to"
+      | "manual-selection",
   ): void {
     const formattedName = this.formatPatternName(pattern);
     const emoji =
-      event === "playing" ? "🎨" : event === "transitioning-to" ? "🔄" : "✨";
+      event === "playing"
+        ? "🎨"
+        : event === "transitioning-to"
+          ? "🔄"
+          : event === "manual-selection"
+            ? "🎯"
+            : "✨";
     const message =
       event === "playing"
         ? `${emoji} Visual playing: ${formattedName}`
         : event === "transitioning-to"
           ? `${emoji} Transitioning to: ${formattedName}`
-          : `${emoji} Now playing: ${formattedName}`;
+          : event === "manual-selection"
+            ? `${emoji} Manually selected: ${formattedName}`
+            : `${emoji} Now playing: ${formattedName}`;
     console.log(`[Visual] ${message}`);
   }
 
@@ -323,7 +335,7 @@ export class FlowFieldRenderer {
     // Fisher-Yates shuffle algorithm
     this.patternSequence = [...this.allPatterns];
     for (let i = this.patternSequence.length - 1; i > 0; i--) {
-      const j = ((Math.random() * (i + 1)) | 0);
+      const j = (Math.random() * (i + 1)) | 0;
       [this.patternSequence[i], this.patternSequence[j]] = [
         this.patternSequence[j]!,
         this.patternSequence[i]!,
@@ -332,7 +344,10 @@ export class FlowFieldRenderer {
   }
 
   private initializeParticles(): void {
-    const count = Math.min(this.particleCount, ((this.width * this.height) * 0.00125) | 0);
+    const count = Math.min(
+      this.particleCount,
+      (this.width * this.height * 0.00125) | 0,
+    );
     this.particles = [];
 
     for (let i = 0; i < count; i++) {
@@ -387,7 +402,7 @@ export class FlowFieldRenderer {
       maxAge: 400 + Math.random() * 400,
       popping: false,
       popProgress: 0,
-      symbolType: ((Math.random() * 8) | 0), // 8 different occult symbols
+      symbolType: (Math.random() * 8) | 0, // 8 different occult symbols
       rotation: Math.random() * Math.PI * 2,
     };
   }
@@ -407,7 +422,7 @@ export class FlowFieldRenderer {
   private initializeMatrixColumns(): void {
     const chars = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜｦﾝ01";
     this.matrixColumns = [];
-    const columnCount = ((this.width * 0.05) | 0); // / 20 optimized
+    const columnCount = (this.width * 0.05) | 0; // / 20 optimized
 
     for (let i = 0; i < columnCount; i++) {
       this.matrixColumns.push({
@@ -652,7 +667,8 @@ export class FlowFieldRenderer {
 
     for (let r = 0; r < rings; r++) {
       const depth = r / rings;
-      const z = depth + this.time * 0.003 * this.tunnelSpeed + bassIntensity * 0.1;
+      const z =
+        depth + this.time * 0.003 * this.tunnelSpeed + bassIntensity * 0.1;
       const zMod = z % 1;
       const scale = 1 / (zMod + 0.1);
       const radius = scale * 50;
@@ -722,7 +738,9 @@ export class FlowFieldRenderer {
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
-    switch (symbolType & 7) { // % 8 optimized with bitwise AND
+    switch (
+      symbolType & 7 // % 8 optimized with bitwise AND
+    ) {
       case 0: // Pentagram
         ctx.beginPath();
         for (let i = 0; i < 5; i++) {
@@ -1172,9 +1190,9 @@ export class FlowFieldRenderer {
       const centerForce = 0.001 * (1 + bassIntensity * 2);
 
       particle.vx +=
-        alignX * 0.02 + cohereX + separateX + (dx * invDist) * centerForce;
+        alignX * 0.02 + cohereX + separateX + dx * invDist * centerForce;
       particle.vy +=
-        alignY * 0.02 + cohereY + separateY + (dy * invDist) * centerForce;
+        alignY * 0.02 + cohereY + separateY + dy * invDist * centerForce;
 
       const maxSpeed = 2 + trebleIntensity * 3;
       const maxSpeedSq = maxSpeed * maxSpeed; // Cache squared value
@@ -1654,7 +1672,7 @@ export class FlowFieldRenderer {
     ctx.globalCompositeOperation = "lighter";
 
     // Pre-calculate base values to reduce per-layer calculations
-    const shimmersPerLayer = Math.max(3, ((audioIntensity * 8) | 0));
+    const shimmersPerLayer = Math.max(3, (audioIntensity * 8) | 0);
     const waveStep = 8; // Increased from 5 for better performance
 
     for (let layer = 0; layer < layers; layer++) {
@@ -1721,7 +1739,7 @@ export class FlowFieldRenderer {
       if (audioIntensity > 0.1) {
         const shimmerSpacing = Math.max(
           40,
-          ((this.width / shimmersPerLayer) | 0),
+          (this.width / shimmersPerLayer) | 0,
         );
 
         for (let x = 0; x < this.width; x += shimmerSpacing) {
@@ -1748,12 +1766,13 @@ export class FlowFieldRenderer {
 
         // Draw clan symbols only when audio is prominent
         if (audioIntensity > 0.3) {
-          const symbolSpacing = ((this.width / Math.max(2, ((audioIntensity * 4) | 0))) | 0);
+          const symbolSpacing =
+            (this.width / Math.max(2, (audioIntensity * 4) | 0)) | 0;
 
           for (let x = 0; x < this.width; x += symbolSpacing) {
             const wave = Math.sin(x * 0.01 + phase * 2) * amplitude;
             const y = yBase + wave;
-            const clanIndex = (((x / symbolSpacing + layer * 3) | 0) % 13);
+            const clanIndex = ((x / symbolSpacing + layer * 3) | 0) % 13;
             const symbolAlpha = 0.05 + audioIntensity * 0.12;
 
             this.drawClanSymbol(
@@ -2008,7 +2027,8 @@ export class FlowFieldRenderer {
     ctx.globalCompositeOperation = "lighter";
 
     for (const star of this.stars) {
-      star.z -= (2 + bassIntensity * 15 + trebleIntensity * 10) * this.starSpeed;
+      star.z -=
+        (2 + bassIntensity * 15 + trebleIntensity * 10) * this.starSpeed;
 
       if (star.z <= 0) {
         star.z = 1000;
@@ -2841,7 +2861,7 @@ export class FlowFieldRenderer {
     for (let i = startIndex; i < endIndex; i++) {
       sum += dataArray[i] ?? 0;
     }
-    return Math.min(1, sum * 0.0078125 / range); // 1/128 optimized
+    return Math.min(1, (sum * 0.0078125) / range); // 1/128 optimized
   }
 
   private hslToRgb(h: number, s: number, l: number): [number, number, number] {
@@ -2855,12 +2875,13 @@ export class FlowFieldRenderer {
         if (t > 1) t -= 1;
         if (t < 0.16666666666666666) return p + (q - p) * 6 * t; // 1/6
         if (t < 0.5) return q;
-        if (t < 0.6666666666666666) return p + (q - p) * (0.6666666666666666 - t) * 6; // 2/3
+        if (t < 0.6666666666666666)
+          return p + (q - p) * (0.6666666666666666 - t) * 6; // 2/3
         return p;
       };
 
       const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = (l + l) - q; // 2 * l optimized
+      const p = l + l - q; // 2 * l optimized
       r = hue2rgb(p, q, h + 0.3333333333333333); // 1/3
       g = hue2rgb(p, q, h);
       b = hue2rgb(p, q, h - 0.3333333333333333); // 1/3
@@ -6841,7 +6862,7 @@ export class FlowFieldRenderer {
       let textLine = "";
       for (let i = 0; i < 15; i++) {
         textLine +=
-          symbols[(((this.time * 0.001 + line + i) % symbols.length) | 0)];
+          symbols[((this.time * 0.001 + line + i) % symbols.length) | 0];
       }
 
       ctx.fillText(textLine, 0, y);
