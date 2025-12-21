@@ -104,7 +104,7 @@ Store certificate details as secrets and use them in your workflow:
 After building, verify the signature:
 
 ```powershell
-signtool verify /pa "dist\isobelnet.de Setup 0.3.0.exe"
+signtool verify /pa "dist\isobelnet Setup 0.6.2.exe"
 ```
 
 Or right-click the .exe file → Properties → Digital Signatures tab

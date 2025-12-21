@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
     const url = new URL("music/search", backendUrl);
     url.searchParams.set("q", query);
-    if (offset) {
+    if (offset != null) {
       url.searchParams.set("offset", offset);
     }
 

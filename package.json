@@ -38,9 +38,9 @@
     "db:studio": "drizzle-kit studio",
     "dev": "node scripts/server.js",
     "dev:next": "next dev --turbo --port 3412",
-    "pm2:start": "npm run build && pm2 start ecosystem.config.cjs --env production && pm2 start ecosystem.config.cjs --only isobelnet-de-dev --env development",
+    "pm2:start": "npm run build && pm2 start ecosystem.config.cjs --only isobelnet-de-prod --env production",
     "pm2:dev": "pm2 start ecosystem.config.cjs --only isobelnet-de-dev --env development",
-    "pm2:reload": "pm2 reload ecosystem.config.cjs --env production && pm2 reload ecosystem.config.cjs --only isobelnet-de-dev --env development --update-env",
+    "pm2:reload": "pm2 reload ecosystem.config.cjs --only isobelnet-de-prod --env production --update-env",
     "pm2:restart": "pm2 restart ecosystem.config.cjs --update-env",
     "pm2:stop": "pm2 stop ecosystem.config.cjs",
     "pm2:delete": "pm2 delete ecosystem.config.cjs",
@@ -62,7 +62,7 @@
     "typecheck": "tsc --noEmit",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3412 && electron .\"",
     "electron:prod": "node scripts/load-env-build.js \"cross-env ELECTRON_BUILD=true ELECTRON_PROD=true next build && npm run electron:prepare && electron .\"",
-    "electron:prod:win": "npm run electron:build:win && .\\dist\\Starchild Music Setup 0.3.0.exe",
+    "electron:prod:win": "npm run electron:build:win && .\\dist\\isobelnet Setup 0.6.2.exe",
     "electron:prepare": "node scripts/load-env-build.js \"node electron/prepare-package.js\"",
     "electron:clean": "node -e \"require('fs').rmSync('dist', {recursive: true, force: true})\"",
     "electron:build": "npm run electron:clean && node scripts/load-env-build.js \"cross-env ELECTRON_BUILD=true next build\" && npm run electron:prepare && electron-builder",
@@ -136,7 +136,7 @@
   },
   "build": {
     "appId": "com.isobelnet.de",
-    "productName": "isobelnet.de",
+    "productName": "isobelnet",
     "directories": {
       "output": "dist"
     },
@@ -157,6 +157,7 @@
       "target": [
         "nsis"
       ],
+      "executableName": "isobelnet",
       "icon": "public/icon.ico",
       "certificateSubjectName": "localhost",
       "signingHashAlgorithms": [
