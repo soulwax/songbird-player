@@ -20,8 +20,12 @@ const __dirname = path.dirname(__filename);
 // ============================================
 // ENVIRONMENT LOADING
 // ============================================
+// Store PM2-provided PORT before loading .env files (PM2 env vars should take precedence)
+const pm2Port = process.env.PORT;
+
 // Load .env first (base config)
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+// Use override: false to preserve PM2-provided env vars
+dotenv.config({ path: path.resolve(__dirname, "../.env"), override: false });
 
 // ============================================
 // CONFIGURATION
@@ -30,8 +34,14 @@ const nodeEnv = process.env.NODE_ENV || "production";
 const isDev = nodeEnv === "development";
 
 // In development mode, load .env.development (overrides .env)
+// Use override: false to preserve PM2-provided env vars
 if (isDev) {
-  dotenv.config({ path: path.resolve(__dirname, "../.env.development") });
+  dotenv.config({ path: path.resolve(__dirname, "../.env.development"), override: false });
+}
+
+// Restore PM2-provided PORT if it was set (PM2 env vars take precedence over .env files)
+if (pm2Port) {
+  process.env.PORT = pm2Port;
 }
 
 // PORT is required - use PORT from env (set by PM2 or loaded from .env/.env.development)

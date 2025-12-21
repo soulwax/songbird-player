@@ -11,7 +11,9 @@ const baseUrl = getBaseUrl();
 
 async function getFirstTrackFromSearch(query: string): Promise<Track | null> {
   try {
-    const url = new URL(`${env.NEXT_PUBLIC_API_URL}music/search`);
+    // Use the API route - construct URL using baseUrl for server-side
+    const baseUrl = getBaseUrl();
+    const url = new URL("/api/music/search", baseUrl);
     url.searchParams.set("q", query);
     const res = await fetch(url.toString(), {
       next: { revalidate: 60 }, // Cache for 60 seconds
@@ -19,7 +21,7 @@ async function getFirstTrackFromSearch(query: string): Promise<Track | null> {
     if (!res.ok) return null;
     const response = (await res.json()) as SearchResponse;
     return response.data?.[0] ?? null;
-      } catch (error) {
+  } catch (error) {
     console.error("Failed to fetch track for metadata:", error);
     return null;
   }

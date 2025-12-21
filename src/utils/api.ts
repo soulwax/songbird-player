@@ -13,7 +13,8 @@ export async function searchTracks(
   query: string,
   offset = 0,
 ): Promise<SearchResponse> {
-  const url = new URL(`${env.NEXT_PUBLIC_API_URL}music/search`);
+  // Use Next.js API route to proxy to backend (avoids CORS and routing issues)
+  const url = new URL("/api/music/search", window.location.origin);
   url.searchParams.set("q", query);
   if (offset > 0) {
     url.searchParams.set("offset", offset.toString());
@@ -37,7 +38,8 @@ export async function searchTracksByArtist(
   offset = 0,
 ): Promise<SearchResponse> {
   // Search for tracks by artist name and sort by rank (popularity) descending
-  const url = new URL(`${env.NEXT_PUBLIC_API_URL}music/search`);
+  // Use Next.js API route to proxy to backend (avoids CORS and routing issues)
+  const url = new URL("/api/music/search", window.location.origin);
   url.searchParams.set("q", artistName);
   if (offset > 0) {
     url.searchParams.set("offset", offset.toString());
