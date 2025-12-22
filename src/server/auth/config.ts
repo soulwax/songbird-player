@@ -3,6 +3,7 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { type DefaultSession, type NextAuthConfig } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
+import { eq } from "drizzle-orm";
 
 import { env } from "@/env";
 import { db } from "@/server/db";
@@ -81,6 +82,32 @@ export const authConfig = {
     },
   },
   callbacks: {
+    // Update user profile data on sign-in to keep Discord avatar fresh
+    async signIn({ user, account, profile }) {
+      // Only update for Discord OAuth sign-ins
+      if (account?.provider === "discord" && profile && user.id) {
+        // Update the user's profile picture and name from Discord's latest data
+        // Use global_name (display name) if available, otherwise fall back to username
+        const updates: { image?: string; name?: string } = {};
+
+        if (profile.image_url) {
+          updates.image = profile.image_url as string;
+        }
+
+        if (profile.global_name || profile.username) {
+          updates.name = (profile.global_name || profile.username) as string;
+        }
+
+        // Only update if we have something to update
+        if (Object.keys(updates).length > 0) {
+          await db
+            .update(users)
+            .set(updates)
+            .where(eq(users.id, user.id));
+        }
+      }
+      return true;
+    },
     session: ({ session, user }) => {
       // Ensure proper serialization by converting to plain object
       return {
