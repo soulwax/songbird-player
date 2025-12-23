@@ -1,6 +1,7 @@
 {
   "name": "darkfloor-art",
   "version": "0.6.4",
+  "description": "A modern music streaming and discovery platform with intelligent recommendations, advanced audio features, and a beautiful user interface",
   "private": true,
   "type": "module",
   "email": "cirrus.okimasu@gmail.com",
@@ -163,12 +164,7 @@
       ],
       "executableName": "darkfloor",
       "icon": "public/icon.ico",
-      "certificateSubjectName": "localhost",
-      "signingHashAlgorithms": [
-        "sha256"
-      ],
-      "signDlls": true,
-      "sign": "./electron/sign.js"
+      "sign": false
     },
     "mac": {
       "target": [

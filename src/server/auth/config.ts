@@ -46,38 +46,53 @@ export const authConfig = {
   },
   cookies: {
     sessionToken: {
-      name: process.env.NODE_ENV === "production"
-        ? `__Secure-authjs.session-token`
-        : `authjs.session-token`,
+      name:
+        process.env.NODE_ENV === "production" &&
+        !process.env.ELECTRON_BUILD
+          ? `__Secure-authjs.session-token`
+          : `authjs.session-token`,
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        // Disable secure cookies in Electron (runs on localhost HTTP)
+        secure:
+          process.env.NODE_ENV === "production" &&
+          !process.env.ELECTRON_BUILD,
         maxAge: 30 * 24 * 60 * 60, // 30 days
       },
     },
     csrfToken: {
-      name: process.env.NODE_ENV === "production"
-        ? `__Host-authjs.csrf-token`
-        : `authjs.csrf-token`,
+      name:
+        process.env.NODE_ENV === "production" &&
+        !process.env.ELECTRON_BUILD
+          ? `__Host-authjs.csrf-token`
+          : `authjs.csrf-token`,
       options: {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        // Disable secure cookies in Electron (runs on localhost HTTP)
+        secure:
+          process.env.NODE_ENV === "production" &&
+          !process.env.ELECTRON_BUILD,
         // Don't set domain explicitly - let it use the request domain
         // This ensures CSRF tokens work across different domains when trustHost is true
       },
     },
     callbackUrl: {
-      name: process.env.NODE_ENV === "production"
-        ? `__Secure-authjs.callback-url`
-        : `authjs.callback-url`,
+      name:
+        process.env.NODE_ENV === "production" &&
+        !process.env.ELECTRON_BUILD
+          ? `__Secure-authjs.callback-url`
+          : `authjs.callback-url`,
       options: {
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        // Disable secure cookies in Electron (runs on localhost HTTP)
+        secure:
+          process.env.NODE_ENV === "production" &&
+          !process.env.ELECTRON_BUILD,
       },
     },
   },
