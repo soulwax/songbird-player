@@ -2542,28 +2542,49 @@ export class FlowFieldRenderer {
     midIntensity: number,
   ): void {
     const ctx = this.ctx;
-    const hexSize = 25 + bassIntensity * 15;
+
+    // HYPER-OPTIMIZATION: Drastically reduce hex count and per-cell work
+    // - Larger hexes on big canvases
+    // - Only draw within central radius
+    // - No per-cell gradients for highlights (solid fills instead)
+    // - Keep the animated hex wave aesthetic
+
+    // Base hex size, scaled lightly with viewport area
+    const minDim = Math.min(this.width, this.height);
+    const areaScale = (this.width * this.height) / (1280 * 720); // ~1 at 720p
+    const scaleClamp = areaScale < 1 ? 1 : Math.min(areaScale, 2.2);
+    const hexSize =
+      (28 + bassIntensity * 16) * Math.sqrt(scaleClamp); // bigger on large canvases
 
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
 
-    
-    const sqrt3 = 1.7320508075688772; 
+    const sqrt3 = 1.7320508075688772; // Math.sqrt(3)
     const hexHeight = hexSize * sqrt3;
     const hexSize1_5 = hexSize * 1.5;
     const hexSize0_75 = hexSize * 0.75;
     const invHexHeight = 1 / hexHeight;
     const invHexSize1_5 = 1 / hexSize1_5;
+
     const timeWave = this.time * 0.05;
     const timeRotation = this.time * 0.001 * midIntensity;
     const distFreq = 0.02;
     const pi3 = Math.PI / 3;
-    const maxRows = (this.height * invHexHeight + 2) | 0;
-    const maxCols = (this.width * invHexSize1_5 + 2) | 0;
+
+    // Slightly reduced grid extents (fewer rows/cols)
+    const maxRows = ((this.height * 0.9) * invHexHeight + 2) | 0;
+    const maxCols = ((this.width * 0.9) * invHexSize1_5 + 2) | 0;
+
     const bassPi = bassIntensity * Math.PI;
+    const maxRadius = minDim * 0.7;
+    const maxRadiusSq = maxRadius * maxRadius;
+
+    // Precompute color/lightness ranges
+    const baseLightness = 38;
+    const lightnessRange = 42 + audioIntensity * 18;
 
     for (let row = -1; row < maxRows; row++) {
-      const offsetX = (row & 1) * hexSize0_75; 
+      const offsetX = (row & 1) * hexSize0_75; // staggered rows
       const y = row * hexHeight;
 
       for (let col = -1; col < maxCols; col++) {
@@ -2572,18 +2593,24 @@ export class FlowFieldRenderer {
         const dx = x - this.centerX;
         const dy = y - this.centerY;
         const distSq = dx * dx + dy * dy;
-        
+
+        // Only render central disc of hexes
+        if (distSq > maxRadiusSq) continue;
+
         const dist = this.fastSqrt(distSq);
 
-        
-        const wave = this.fastSin(dist * distFreq - timeWave + bassPi) * 0.5 + 0.5;
-        const hue = this.fastMod360(this.hueBase + dist * 0.3 + wave * 180);
-        const lightness = 40 + wave * 40 + audioIntensity * 20;
+        // Animated wave over hex grid
+        const wave =
+          this.fastSin(dist * distFreq - timeWave + bassPi) * 0.5 + 0.5;
+        const hue = this.fastMod360(
+          this.hueBase + dist * 0.28 + wave * 160,
+        );
+        const lightness = baseLightness + wave * lightnessRange;
 
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
           const angle = pi3 * i + timeRotation;
-          
+
           const hx = x + this.fastCos(angle) * hexSize;
           const hy = y + this.fastSin(angle) * hexSize;
 
@@ -2595,15 +2622,23 @@ export class FlowFieldRenderer {
         }
         ctx.closePath();
 
-        ctx.strokeStyle = this.hsla(hue, 80, lightness, 0.5 + audioIntensity * 0.4);
-        ctx.lineWidth = 2 + audioIntensity * 2;
+        ctx.strokeStyle = this.hsla(
+          hue,
+          78,
+          lightness,
+          0.45 + audioIntensity * 0.35,
+        );
+        ctx.lineWidth = 1.5 + audioIntensity * 1.8;
         ctx.stroke();
 
-        if (wave > 0.7) {
-          const gradient = ctx.createRadialGradient(x, y, 0, x, y, hexSize);
-          gradient.addColorStop(0, this.hsla(hue, 90, 80, wave * 0.3));
-          gradient.addColorStop(1, this.hsla(hue, 80, 70, 0));
-          ctx.fillStyle = gradient;
+        // Bright inner fill only for the strongest wave crests, no gradient
+        if (wave > 0.78) {
+          ctx.fillStyle = this.hsla(
+            hue,
+            88,
+            lightness + 8,
+            (wave - 0.5) * 0.5,
+          );
           ctx.fill();
         }
       }
@@ -9659,63 +9694,56 @@ export class FlowFieldRenderer {
     ctx.translate(this.centerX, this.centerY);
 
     const maxRadius = Math.min(this.width, this.height) * 0.43;
-    const runeCount = 16; 
+    const runeCount = 16;
     const invRuneCount = 1 / runeCount;
     const angleStep = FlowFieldRenderer.TWO_PI * invRuneCount;
 
-    
+    // Outer linking network (kept light, no per-link gradients)
     ctx.strokeStyle = this.hsla(
       this.fastMod360(this.hueBase + 295),
       85,
       35,
-      0.2 + bassIntensity * 0.15,
+      0.18 + bassIntensity * 0.12,
     );
     ctx.lineWidth = 1 + bassIntensity;
 
     for (let i = 0; i < runeCount; i += 2) {
-      const angle1 = angleStep * i + this.time * 0.0006;
-      const radius1 = maxRadius * (0.5 + this.fastSin(this.time * 0.002 + i) * 0.15);
+      const angle1 = angleStep * i + this.time * 0.0005;
+      const radius1 =
+        maxRadius * (0.5 + this.fastSin(this.time * 0.002 + i) * 0.12);
       const x1 = this.fastCos(angle1) * radius1;
       const y1 = this.fastSin(angle1) * radius1;
 
       const oppositeIdx = (i + runeCount / 2) % runeCount;
-      const angle2 = angleStep * oppositeIdx + this.time * 0.0006;
-      const radius2 = maxRadius * (0.5 + this.fastSin(this.time * 0.002 + oppositeIdx) * 0.15);
+      const angle2 = angleStep * oppositeIdx + this.time * 0.0005;
+      const radius2 =
+        maxRadius *
+        (0.5 +
+          this.fastSin(this.time * 0.002 + oppositeIdx) * 0.12);
       const x2 = this.fastCos(angle2) * radius2;
       const y2 = this.fastSin(angle2) * radius2;
 
-      const energyGradient = ctx.createLinearGradient(x1, y1, x2, y2);
-      energyGradient.addColorStop(
-        0,
-        this.hsla(this.fastMod360(this.hueBase + 290 + i * 2), 90, 40, 0.3),
-      );
-      energyGradient.addColorStop(
-        0.5,
-        this.hsla(this.fastMod360(this.hueBase + 295), 85, 35, 0.15),
-      );
-      energyGradient.addColorStop(
-        1,
-        this.hsla(this.fastMod360(this.hueBase + 290 + oppositeIdx * 2), 90, 40, 0.3),
-      );
-
-      ctx.strokeStyle = energyGradient;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       ctx.stroke();
     }
 
-    
-    const fragmentCount = 30 + ((midIntensity * 20) | 0);
+    // Floating cursed fragments
+    const fragmentCount = 24 + ((midIntensity * 18) | 0);
     for (let f = 0; f < fragmentCount; f++) {
-      const fragmentAngle = this.fastSin(this.time * 0.001 + f * 0.5) * FlowFieldRenderer.TWO_PI;
+      const fragmentAngle =
+        this.fastSin(this.time * 0.001 + f * 0.45) *
+        FlowFieldRenderer.TWO_PI;
       const fragmentRadius =
-        maxRadius * 0.2 + this.fastSin(this.time * 0.003 + f) * maxRadius * 0.35;
+        maxRadius * 0.2 +
+        this.fastSin(this.time * 0.003 + f) * maxRadius * 0.32;
       const fx = this.fastCos(fragmentAngle) * fragmentRadius;
       const fy = this.fastSin(fragmentAngle) * fragmentRadius;
-      const fSize = 2 + this.fastSin(this.time * 0.005 + f) * 1.5;
-      const fAlpha = 0.3 + this.fastSin(this.time * 0.004 + f) * 0.2;
-      const fHue = this.fastMod360(this.hueBase + 285 + f * 5);
+      const fSize = 1.8 + this.fastSin(this.time * 0.005 + f) * 1.3;
+      const fAlpha =
+        0.28 + this.fastSin(this.time * 0.004 + f) * 0.18;
+      const fHue = this.fastMod360(this.hueBase + 285 + f * 4);
 
       ctx.fillStyle = this.hsla(fHue, 95, 45, fAlpha);
       ctx.beginPath();
@@ -9723,126 +9751,155 @@ export class FlowFieldRenderer {
       ctx.fill();
     }
 
-    
+    // Distinct rune glyphs: 8 archetypal arcane symbols, all simple paths
     for (let i = 0; i < runeCount; i++) {
-      const angle = angleStep * i + this.time * 0.0006;
-      const radius = maxRadius * (0.5 + this.fastSin(this.time * 0.002 + i) * 0.15);
+      const angle = angleStep * i + this.time * 0.0005;
+      const radius =
+        maxRadius * (0.5 + this.fastSin(this.time * 0.002 + i) * 0.15);
       const x = this.fastCos(angle) * radius;
       const y = this.fastSin(angle) * radius;
 
       const hue = this.fastMod360(this.hueBase + 290 + i * 3);
-      const size = 12 + this.fastSin(this.time * 0.003 + i) * 4 + midIntensity * 5;
-      const alpha = 0.6 + this.fastSin(this.time * 0.004 + i) * 0.2 + midIntensity * 0.2;
+      const size =
+        12 + this.fastSin(this.time * 0.003 + i) * 4 + midIntensity * 5;
+      const alpha =
+        0.6 + this.fastSin(this.time * 0.004 + i) * 0.2 + midIntensity * 0.2;
 
-      
-      const auraRadius = size * (2 + this.fastSin(this.time * 0.006 + i) * 0.5 + bassIntensity * 0.8);
-      const auraGradient = ctx.createRadialGradient(x, y, size * 0.5, x, y, auraRadius);
-      auraGradient.addColorStop(0, this.hsla(hue, 100, 50, alpha * 0.3));
-      auraGradient.addColorStop(0.5, this.hsla(hue, 95, 45, alpha * 0.15));
-      auraGradient.addColorStop(1, this.hsla(hue, 90, 40, 0));
+      // Aura
+      const auraRadius =
+        size *
+        (1.7 + this.fastSin(this.time * 0.006 + i) * 0.4 + bassIntensity * 0.6);
+      const auraGradient = ctx.createRadialGradient(
+        x,
+        y,
+        size * 0.4,
+        x,
+        y,
+        auraRadius,
+      );
+      auraGradient.addColorStop(
+        0,
+        this.hsla(hue, 100, 50, alpha * 0.28),
+      );
+      auraGradient.addColorStop(
+        0.6,
+        this.hsla(hue, 95, 45, alpha * 0.14),
+      );
+      auraGradient.addColorStop(
+        1,
+        this.hsla(hue, 90, 40, 0),
+      );
 
       ctx.fillStyle = auraGradient;
       ctx.beginPath();
       ctx.arc(x, y, auraRadius, 0, FlowFieldRenderer.TWO_PI);
       ctx.fill();
 
-      
-      const sparkCount = 8 + ((bassIntensity * 4) | 0);
+      // Small sparks around rune
+      const sparkCount = 5;
       const sparkAngleStep = FlowFieldRenderer.TWO_PI / sparkCount;
       for (let s = 0; s < sparkCount; s++) {
-        const sparkAngle = sparkAngleStep * s + this.time * 0.01 + i;
-        const sparkDist = size * (1.5 + this.fastSin(this.time * 0.02 + i + s) * 0.5);
+        const sparkAngle =
+          sparkAngleStep * s + this.time * 0.01 + i * 0.2;
+        const sparkDist =
+          size * (1.2 + this.fastSin(this.time * 0.02 + i + s) * 0.4);
         const sx = x + this.fastCos(sparkAngle) * sparkDist;
         const sy = y + this.fastSin(sparkAngle) * sparkDist;
-        const sparkSize = 1.5 + this.fastSin(this.time * 0.015 + s) * 0.8;
 
-        ctx.fillStyle = this.hsla(this.fastMod360(hue + 10), 100, 60, alpha * 0.7);
+        ctx.fillStyle = this.hsla(
+          this.fastMod360(hue + 12),
+          100,
+          62,
+          alpha * 0.65,
+        );
         ctx.beginPath();
-        ctx.arc(sx, sy, sparkSize, 0, FlowFieldRenderer.TWO_PI);
+        ctx.arc(sx, sy, 1.4, 0, FlowFieldRenderer.TWO_PI);
         ctx.fill();
       }
 
+      // Glyph itself: 8 clearly distinct rune archetypes
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(angle + this.time * 0.001);
 
       ctx.strokeStyle = this.hsla(hue, 90, 40, alpha);
-      ctx.fillStyle = this.hsla(hue, 85, 35, alpha * 0.4);
-      ctx.lineWidth = 2 + bassIntensity * 1.5;
-      ctx.shadowBlur = 20;
-      ctx.shadowColor = this.hsla(hue, 100, 45, 0.8);
+      ctx.fillStyle = this.hsla(hue, 85, 35, alpha * 0.45);
+      ctx.lineWidth = 2 + bassIntensity * 1.3;
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = this.hsla(hue, 100, 45, 0.78);
 
-      
       const runeType = i % 8;
       if (runeType === 0) {
-        
+        // Triad sigil (triangle with inner mark)
         ctx.beginPath();
         ctx.moveTo(0, -size);
-        ctx.lineTo(-size * 0.3, size);
-        ctx.lineTo(size * 0.3, size);
+        ctx.lineTo(-size * 0.5, size * 0.7);
+        ctx.lineTo(size * 0.5, size * 0.7);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        
+
         ctx.beginPath();
-        ctx.moveTo(0, -size * 0.3);
-        ctx.lineTo(-size * 0.15, size * 0.3);
-        ctx.lineTo(size * 0.15, size * 0.3);
+        ctx.moveTo(0, -size * 0.4);
+        ctx.lineTo(-size * 0.18, size * 0.2);
+        ctx.lineTo(size * 0.18, size * 0.2);
         ctx.closePath();
         ctx.stroke();
       } else if (runeType === 1) {
-        
-        ctx.beginPath();
-        ctx.moveTo(-size * 0.5, -size);
-        ctx.lineTo(size * 0.5, -size);
-        ctx.lineTo(0, size);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.moveTo(0, -size * 0.6);
-        ctx.lineTo(0, size * 0.6);
-        ctx.stroke();
-      } else if (runeType === 2) {
-        
+        // Key rune
         ctx.beginPath();
         ctx.moveTo(0, -size);
-        ctx.lineTo(-size * 0.5, 0);
+        ctx.lineTo(0, size * 0.7);
+        ctx.moveTo(-size * 0.3, -size * 0.3);
+        ctx.lineTo(size * 0.3, -size * 0.3);
+        ctx.moveTo(-size * 0.25, size * 0.3);
+        ctx.lineTo(size * 0.25, size * 0.3);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, -size * 0.7, size * 0.25, 0, FlowFieldRenderer.TWO_PI);
+        ctx.stroke();
+      } else if (runeType === 2) {
+        // Crossed diamond rune
+        ctx.beginPath();
+        ctx.moveTo(0, -size);
+        ctx.lineTo(-size * 0.6, 0);
         ctx.lineTo(0, size);
-        ctx.lineTo(size * 0.5, 0);
+        ctx.lineTo(size * 0.6, 0);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        
+
         ctx.beginPath();
         ctx.moveTo(0, -size * 0.5);
         ctx.lineTo(0, size * 0.5);
-        ctx.moveTo(-size * 0.25, 0);
-        ctx.lineTo(size * 0.25, 0);
+        ctx.moveTo(-size * 0.3, 0);
+        ctx.lineTo(size * 0.3, 0);
         ctx.stroke();
       } else if (runeType === 3) {
-        
+        // Bounded square rune
         ctx.beginPath();
-        ctx.moveTo(-size * 0.4, -size);
-        ctx.lineTo(size * 0.4, -size);
-        ctx.lineTo(size * 0.4, size);
-        ctx.lineTo(-size * 0.4, size);
+        ctx.moveTo(-size * 0.5, -size * 0.8);
+        ctx.lineTo(size * 0.5, -size * 0.8);
+        ctx.lineTo(size * 0.5, size * 0.8);
+        ctx.lineTo(-size * 0.5, size * 0.8);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
+
         ctx.beginPath();
-        ctx.moveTo(-size * 0.4, -size);
-        ctx.lineTo(size * 0.4, size);
-        ctx.moveTo(size * 0.4, -size);
-        ctx.lineTo(-size * 0.4, size);
+        ctx.moveTo(-size * 0.5, -size * 0.8);
+        ctx.lineTo(size * 0.5, size * 0.8);
+        ctx.moveTo(size * 0.5, -size * 0.8);
+        ctx.lineTo(-size * 0.5, size * 0.8);
         ctx.stroke();
       } else if (runeType === 4) {
-        
+        // Hex gate rune
         const hexPoints = 6;
         ctx.beginPath();
         for (let h = 0; h <= hexPoints; h++) {
-          const hexAngle = (FlowFieldRenderer.TWO_PI * h) / hexPoints;
+          const hexAngle =
+            (FlowFieldRenderer.TWO_PI * h) / hexPoints;
           const hx = this.fastCos(hexAngle) * size;
           const hy = this.fastSin(hexAngle) * size;
           if (h === 0) ctx.moveTo(hx, hy);
@@ -9851,22 +9908,25 @@ export class FlowFieldRenderer {
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        
+
         for (let h = 0; h < 3; h++) {
           const h1 = (FlowFieldRenderer.TWO_PI * h) / hexPoints;
-          const h2 = (FlowFieldRenderer.TWO_PI * (h + 3)) / hexPoints;
+          const h2 =
+            (FlowFieldRenderer.TWO_PI * (h + 3)) / hexPoints;
           ctx.beginPath();
           ctx.moveTo(this.fastCos(h1) * size, this.fastSin(h1) * size);
           ctx.lineTo(this.fastCos(h2) * size, this.fastSin(h2) * size);
           ctx.stroke();
         }
       } else if (runeType === 5) {
-        
-        const starPoints = 8;
+        // Starburst rune
+        const starPoints = 7;
         ctx.beginPath();
         for (let sp = 0; sp <= starPoints * 2; sp++) {
-          const starAngle = (FlowFieldRenderer.TWO_PI * sp) / (starPoints * 2);
-          const starRadius = sp % 2 === 0 ? size : size * 0.4;
+          const starAngle =
+            (FlowFieldRenderer.TWO_PI * sp) / (starPoints * 2);
+          const starRadius =
+            sp % 2 === 0 ? size : size * 0.45;
           const spx = this.fastCos(starAngle) * starRadius;
           const spy = this.fastSin(starAngle) * starRadius;
           if (sp === 0) ctx.moveTo(spx, spy);
@@ -9876,12 +9936,12 @@ export class FlowFieldRenderer {
         ctx.fill();
         ctx.stroke();
       } else if (runeType === 6) {
-        
+        // Spiral curse rune
         ctx.beginPath();
-        const spiralSegments = 20;
+        const spiralSegments = 18;
         for (let seg = 0; seg <= spiralSegments; seg++) {
           const t = seg / spiralSegments;
-          const spiralAngle = t * FlowFieldRenderer.TWO_PI * 1.5;
+          const spiralAngle = t * FlowFieldRenderer.TWO_PI * 1.4;
           const spiralRadius = size * t;
           const spiralX = this.fastCos(spiralAngle) * spiralRadius;
           const spiralY = this.fastSin(spiralAngle) * spiralRadius;
@@ -9889,16 +9949,18 @@ export class FlowFieldRenderer {
           else ctx.lineTo(spiralX, spiralY);
         }
         ctx.stroke();
-        
+
         ctx.beginPath();
-        ctx.arc(0, 0, size, 0, FlowFieldRenderer.TWO_PI);
+        ctx.arc(0, 0, size * 0.8, 0, FlowFieldRenderer.TWO_PI);
         ctx.stroke();
       } else {
-        
+        // Inverted pentagram rune
         const pentaPoints = 5;
         ctx.beginPath();
         for (let p = 0; p <= pentaPoints; p++) {
-          const pentaAngle = (FlowFieldRenderer.TWO_PI * p * 2) / pentaPoints - Math.PI * 0.5;
+          const pentaAngle =
+            (FlowFieldRenderer.TWO_PI * p * 2) / pentaPoints -
+            Math.PI * 0.5;
           const px = this.fastCos(pentaAngle) * size;
           const py = this.fastSin(pentaAngle) * size;
           if (p === 0) ctx.moveTo(px, py);
@@ -9912,13 +9974,21 @@ export class FlowFieldRenderer {
       ctx.restore();
     }
 
-    
+    // Central cursed core
     for (let layer = 0; layer < 4; layer++) {
       const layerRadius = maxRadius * (0.22 - layer * 0.04);
-      const layerPulse = 1 + this.fastSin(this.time * 0.005 + layer * 0.5) * 0.1;
+      const layerPulse =
+        1 + this.fastSin(this.time * 0.005 + layer * 0.5) * 0.1;
       const finalRadius = layerRadius * layerPulse;
 
-      const cursedCenter = ctx.createRadialGradient(0, 0, 0, 0, 0, finalRadius);
+      const cursedCenter = ctx.createRadialGradient(
+        0,
+        0,
+        0,
+        0,
+        0,
+        finalRadius,
+      );
       cursedCenter.addColorStop(
         0,
         this.hsla(
@@ -9937,7 +10007,15 @@ export class FlowFieldRenderer {
           (0.7 - layer * 0.1) + bassIntensity * 0.2,
         ),
       );
-      cursedCenter.addColorStop(1, this.hsla(this.fastMod360(this.hueBase + 280 - layer * 3), 90, 30, 0));
+      cursedCenter.addColorStop(
+        1,
+        this.hsla(
+          this.fastMod360(this.hueBase + 280 - layer * 3),
+          90,
+          30,
+          0,
+        ),
+      );
 
       ctx.fillStyle = cursedCenter;
       ctx.beginPath();
