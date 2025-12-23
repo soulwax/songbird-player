@@ -4915,9 +4915,20 @@ export class FlowFieldRenderer {
 
       // Central symbol
       const symbolSize = cardWidth * 0.3 + midIntensity * 10;
-      ctx.fillStyle = `hsla(${hue}, 90%, 70%, ${0.7 + audioIntensity * 0.3})`;
-      ctx.strokeStyle = `hsla(${hue + 60}, 95%, 75%, 0.9)`;
+      const symbolAlpha = 0.7 + audioIntensity * 0.3;
+      const symbolHue60 = this.fastMod360(hue + 60);
+      ctx.fillStyle = this.hsla(hue, 90, 70, symbolAlpha);
+      ctx.strokeStyle = this.hsla(symbolHue60, 95, 75, 0.9);
       ctx.lineWidth = 2;
+
+      // HYPER-OPTIMIZATION: Pre-calculate symbol parameters
+      const twoPi = FlowFieldRenderer.TWO_PI;
+      const inv8 = 1 / 8;
+      const inv5 = 1 / 5;
+      const inv4 = 1 / 4;
+      const halfPi = Math.PI * 0.5;
+      const timeParticle = this.time * 0.01;
+      const timeParticleDist = this.time * 0.02;
 
       // Different symbols for each card
       const symbolType = i % 4;
@@ -4925,40 +4936,38 @@ export class FlowFieldRenderer {
 
       switch (symbolType) {
         case 0: // Sun
-          ctx.arc(0, 0, symbolSize, 0, Math.PI * 2);
+          ctx.arc(0, 0, symbolSize, 0, twoPi);
           for (let r = 0; r < 8; r++) {
-            const rAngle = (Math.PI * 2 * r) / 8;
-            ctx.moveTo(
-              Math.cos(rAngle) * symbolSize,
-              Math.sin(rAngle) * symbolSize,
-            );
-            ctx.lineTo(
-              Math.cos(rAngle) * symbolSize * 1.4,
-              Math.sin(rAngle) * symbolSize * 1.4,
-            );
+            const rAngle = twoPi * r * inv8;
+            // HYPER-OPTIMIZATION: Use fast trig for sun rays
+            const cosAngle = this.fastCos(rAngle);
+            const sinAngle = this.fastSin(rAngle);
+            ctx.moveTo(cosAngle * symbolSize, sinAngle * symbolSize);
+            ctx.lineTo(cosAngle * symbolSize * 1.4, sinAngle * symbolSize * 1.4);
           }
           break;
         case 1: // Moon
-          ctx.arc(symbolSize * 0.3, 0, symbolSize, 0, Math.PI * 2);
-          ctx.arc(-symbolSize * 0.3, 0, symbolSize, 0, Math.PI * 2);
+          ctx.arc(symbolSize * 0.3, 0, symbolSize, 0, twoPi);
+          ctx.arc(-symbolSize * 0.3, 0, symbolSize, 0, twoPi);
           break;
         case 2: // Star
           for (let p = 0; p < 5; p++) {
-            const pAngle = (Math.PI * 2 * p) / 5 - Math.PI / 2;
-            const nextAngle = (Math.PI * 2 * (p + 2)) / 5 - Math.PI / 2;
-            const px = Math.cos(pAngle) * symbolSize;
-            const py = Math.sin(pAngle) * symbolSize;
-            const npx = Math.cos(nextAngle) * symbolSize;
-            const npy = Math.sin(nextAngle) * symbolSize;
+            const pAngle = twoPi * p * inv5 - halfPi;
+            const nextAngle = twoPi * (p + 2) * inv5 - halfPi;
+            // HYPER-OPTIMIZATION: Use fast trig for star points
+            const px = this.fastCos(pAngle) * symbolSize;
+            const py = this.fastSin(pAngle) * symbolSize;
+            const npx = this.fastCos(nextAngle) * symbolSize;
+            const npy = this.fastSin(nextAngle) * symbolSize;
             if (p === 0) ctx.moveTo(px, py);
             ctx.lineTo(npx, npy);
           }
           ctx.closePath();
           break;
         case 3: // Eye
-          ctx.ellipse(0, 0, symbolSize, symbolSize * 0.6, 0, 0, Math.PI * 2);
+          ctx.ellipse(0, 0, symbolSize, symbolSize * 0.6, 0, 0, twoPi);
           ctx.moveTo(symbolSize * 0.3, 0);
-          ctx.arc(0, 0, symbolSize * 0.3, 0, Math.PI * 2);
+          ctx.arc(0, 0, symbolSize * 0.3, 0, twoPi);
           break;
       }
 
@@ -4966,16 +4975,19 @@ export class FlowFieldRenderer {
       ctx.stroke();
 
       // Mystical particles around card
+      const particleDist = cardWidth * 0.6;
+      const particleHue = this.fastMod360(hue + 120);
       for (let p = 0; p < 4; p++) {
-        const pAngle = (Math.PI * 2 * p) / 4 + this.time * 0.01;
-        const pDist = cardWidth * 0.6 + Math.sin(this.time * 0.02 + p) * 10;
-        const px = Math.cos(pAngle) * pDist;
-        const py = Math.sin(pAngle) * pDist;
+        const pAngle = twoPi * p * inv4 + timeParticle;
+        // HYPER-OPTIMIZATION: Use fast trig for particle position
+        const pDist = particleDist + this.fastSin(timeParticleDist + p) * 10;
+        const px = this.fastCos(pAngle) * pDist;
+        const py = this.fastSin(pAngle) * pDist;
         const pSize = 3 + audioIntensity * 4;
 
-        ctx.fillStyle = `hsla(${hue + 120}, 90%, 70%, 0.7)`;
+        ctx.fillStyle = this.hsla(particleHue, 90, 70, 0.7);
         ctx.beginPath();
-        ctx.arc(px, py, pSize, 0, Math.PI * 2);
+        ctx.arc(px, py, pSize, 0, twoPi);
         ctx.fill();
       }
 
@@ -5028,6 +5040,14 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY + 50);
 
+    // HYPER-OPTIMIZATION: Pre-calculate kabbalah parameters
+    const twoPi = FlowFieldRenderer.TWO_PI;
+    const timePath = this.time * 0.003;
+    const timeSephira = this.time * 0.004;
+    const timeSymbol = this.time * 0.002;
+    const inv6 = 1 / 6;
+    const symbolAngleStep = twoPi * inv6;
+
     // Draw paths
     ctx.lineWidth = 2;
     paths.forEach((path, pathIndex) => {
@@ -5039,10 +5059,11 @@ export class FlowFieldRenderer {
       const to = sephirot[toIndex];
       if (!from || !to) return;
 
-      const hue = (this.hueBase + pathIndex * 15) % 360;
-      const pulse = Math.sin(this.time * 0.003 + pathIndex * 0.5) * 0.3 + 0.7;
+      const hue = this.fastMod360(this.hueBase + pathIndex * 15);
+      // HYPER-OPTIMIZATION: Use fast trig for path pulse
+      const pulse = this.fastSin(timePath + pathIndex * 0.5) * 0.3 + 0.7;
 
-      ctx.strokeStyle = `hsla(${hue}, 70%, 60%, ${0.3 * pulse + audioIntensity * 0.2})`;
+      ctx.strokeStyle = this.hsla(hue, 70, 60, 0.3 * pulse + audioIntensity * 0.2);
       ctx.setLineDash([10, 10]);
 
       ctx.beginPath();
@@ -5056,60 +5077,65 @@ export class FlowFieldRenderer {
     sephirot.forEach((sephira, index) => {
       const size =
         30 + (index === 5 ? bassIntensity * 20 : trebleIntensity * 10);
-      const hue = (this.hueBase + sephira.hueOffset) % 360;
-      const pulse = Math.sin(this.time * 0.004 + index * 0.7) * 0.2 + 0.8;
+      const hue = this.fastMod360(this.hueBase + sephira.hueOffset);
+      // HYPER-OPTIMIZATION: Use fast trig for sephira pulse
+      const pulse = this.fastSin(timeSephira + index * 0.7) * 0.2 + 0.8;
 
       // Glow
+      const size2 = size * 2;
+      const size4 = size * 4;
+      const size03 = size * 0.3;
+      const glowAlpha = 0.6 * pulse + audioIntensity * 0.3;
       const gradient = ctx.createRadialGradient(
         sephira.x,
         sephira.y,
-        size * 0.3,
+        size03,
         sephira.x,
         sephira.y,
-        size * 2,
+        size2,
       );
-      gradient.addColorStop(
-        0,
-        `hsla(${hue}, 90%, 70%, ${0.6 * pulse + audioIntensity * 0.3})`,
-      );
-      gradient.addColorStop(1, `hsla(${hue}, 80%, 60%, 0)`);
+      gradient.addColorStop(0, this.hsla(hue, 90, 70, glowAlpha));
+      gradient.addColorStop(1, this.hsla(hue, 80, 60, 0));
 
       ctx.fillStyle = gradient;
       ctx.fillRect(
-        sephira.x - size * 2,
-        sephira.y - size * 2,
-        size * 4,
-        size * 4,
+        sephira.x - size2,
+        sephira.y - size2,
+        size4,
+        size4,
       );
 
       // Sephira circle
-      ctx.fillStyle = `hsla(${hue}, 85%, 65%, 0.9)`;
-      ctx.strokeStyle = `hsla(${hue + 30}, 90%, 70%, 0.9)`;
+      const hue30 = this.fastMod360(hue + 30);
+      ctx.fillStyle = this.hsla(hue, 85, 65, 0.9);
+      ctx.strokeStyle = this.hsla(hue30, 90, 70, 0.9);
       ctx.lineWidth = 3;
 
       ctx.beginPath();
-      ctx.arc(sephira.x, sephira.y, size, 0, Math.PI * 2);
+      ctx.arc(sephira.x, sephira.y, size, 0, twoPi);
       ctx.fill();
       ctx.stroke();
 
       // Inner ring
-      ctx.strokeStyle = `hsla(${hue + 60}, 95%, 75%, 0.7)`;
+      ctx.strokeStyle = this.hsla(this.fastMod360(hue + 60), 95, 75, 0.7);
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(sephira.x, sephira.y, size * 0.6, 0, Math.PI * 2);
+      ctx.arc(sephira.x, sephira.y, size * 0.6, 0, twoPi);
       ctx.stroke();
 
       // Rotating symbols
       const symbolCount = 6;
+      const sDist = size * 0.4;
+      const symbolHue = this.fastMod360(hue + 90);
       for (let s = 0; s < symbolCount; s++) {
-        const sAngle = (Math.PI * 2 * s) / symbolCount + this.time * 0.002;
-        const sDist = size * 0.4;
-        const sx = sephira.x + Math.cos(sAngle) * sDist;
-        const sy = sephira.y + Math.sin(sAngle) * sDist;
+        const sAngle = symbolAngleStep * s + timeSymbol;
+        // HYPER-OPTIMIZATION: Use fast trig for symbol position
+        const sx = sephira.x + this.fastCos(sAngle) * sDist;
+        const sy = sephira.y + this.fastSin(sAngle) * sDist;
 
-        ctx.fillStyle = `hsla(${hue + 90}, 90%, 70%, 0.8)`;
+        ctx.fillStyle = this.hsla(symbolHue, 90, 70, 0.8);
         ctx.beginPath();
-        ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+        ctx.arc(sx, sy, 2, 0, twoPi);
         ctx.fill();
       }
     });
@@ -5215,19 +5241,26 @@ export class FlowFieldRenderer {
     ctx.arc(0, 0, size * 0.7, 0, Math.PI * 2);
     ctx.fill();
 
-    // Rotating energy particles
+    // HYPER-OPTIMIZATION: Pre-calculate merkaba particle parameters
     const particleCount = 12;
-    for (let i = 0; i < particleCount; i++) {
-      const angle = (Math.PI * 2 * i) / particleCount + this.time * 0.005;
-      const orbitRadius = size * 0.6;
-      const px = Math.cos(angle) * orbitRadius;
-      const py = Math.sin(angle) * orbitRadius;
-      const pSize = 4 + audioIntensity * 5;
-      const pHue = (this.hueBase + i * 30) % 360;
+    const invParticleCount = 1 / particleCount;
+    const timeParticle = this.time * 0.005;
+    const orbitRadius = size * 0.6;
+    const twoPi = FlowFieldRenderer.TWO_PI;
+    const particleAngleStep = twoPi * invParticleCount;
 
-      ctx.fillStyle = `hsla(${pHue}, 90%, 70%, 0.8)`;
+    // Rotating energy particles
+    for (let i = 0; i < particleCount; i++) {
+      const angle = particleAngleStep * i + timeParticle;
+      // HYPER-OPTIMIZATION: Use fast trig for particle position
+      const px = this.fastCos(angle) * orbitRadius;
+      const py = this.fastSin(angle) * orbitRadius;
+      const pSize = 4 + audioIntensity * 5;
+      const pHue = this.fastMod360(this.hueBase + i * 30);
+
+      ctx.fillStyle = this.hsla(pHue, 90, 70, 0.8);
       ctx.beginPath();
-      ctx.arc(px, py, pSize, 0, Math.PI * 2);
+      ctx.arc(px, py, pSize, 0, twoPi);
       ctx.fill();
     }
 
@@ -5247,57 +5280,72 @@ export class FlowFieldRenderer {
     ctx.translate(this.centerX, this.centerY);
     ctx.rotate(this.time * 0.0005);
 
+    // HYPER-OPTIMIZATION: Pre-calculate flower of life parameters
+    const twoPi = FlowFieldRenderer.TWO_PI;
+    const sqrt3 = 1.7320508075688772; // Math.sqrt(3) pre-calculated
+    const timePulse = this.time * 0.005;
+    const centerAlpha = 0.7 + audioIntensity * 0.3;
+    const ringAlpha = 0.6 + audioIntensity * 0.2;
+    const inv6 = 1 / 6;
+    const outerAngleStep = twoPi * inv6;
+
     // Center circle
     const centerHue = this.hueBase;
-    ctx.strokeStyle = `hsla(${centerHue}, 85%, 65%, ${0.7 + audioIntensity * 0.3})`;
-    ctx.fillStyle = `hsla(${centerHue}, 75%, 60%, 0.1)`;
+    ctx.strokeStyle = this.hsla(centerHue, 85, 65, centerAlpha);
+    ctx.fillStyle = this.hsla(centerHue, 75, 60, 0.1);
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.arc(0, 0, radius, 0, twoPi);
     ctx.fill();
     ctx.stroke();
 
     // Rings of circles
     for (let ring = 1; ring <= rings; ring++) {
       const circlesInRing = ring * 6;
-      const hue = (this.hueBase + ring * 40) % 360;
+      const invCirclesInRing = 1 / circlesInRing;
+      const hue = this.fastMod360(this.hueBase + ring * 40);
+      const distance = ring === 1 ? radius : radius * sqrt3 * ring;
+      const pulseAlpha = 0.6 + bassIntensity * 0.4;
 
       for (let i = 0; i < circlesInRing; i++) {
-        const angle = (Math.PI * 2 * i) / circlesInRing;
-        const distance = ring === 1 ? radius : radius * Math.sqrt(3) * ring;
-        const x = Math.cos(angle) * distance;
-        const y = Math.sin(angle) * distance;
+        const angle = twoPi * i * invCirclesInRing;
+        // HYPER-OPTIMIZATION: Use fast trig for circle position
+        const x = this.fastCos(angle) * distance;
+        const y = this.fastSin(angle) * distance;
 
-        ctx.strokeStyle = `hsla(${hue}, 85%, 65%, ${0.6 + audioIntensity * 0.2})`;
+        ctx.strokeStyle = this.hsla(hue, 85, 65, ringAlpha);
         ctx.lineWidth = 2;
 
         ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.arc(x, y, radius, 0, twoPi);
         ctx.stroke();
 
         // Add pulsing center dots
-        const pulse = Math.sin(this.time * 0.005 + i * 0.3) * 3 + 5;
-        ctx.fillStyle = `hsla(${hue + 60}, 90%, 70%, ${0.6 + bassIntensity * 0.4})`;
+        // HYPER-OPTIMIZATION: Use fast trig for pulse calculation
+        const pulse = this.fastSin(timePulse + i * 0.3) * 3 + 5;
+        ctx.fillStyle = this.hsla(this.fastMod360(hue + 60), 90, 70, pulseAlpha);
         ctx.beginPath();
-        ctx.arc(x, y, pulse, 0, Math.PI * 2);
+        ctx.arc(x, y, pulse, 0, twoPi);
         ctx.fill();
       }
     }
 
     // Outer vesica piscis pattern
     const outerRadius = radius * 2 * (rings + 1);
+    const outerAlpha = 0.4 + audioIntensity * 0.2;
     for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI * 2 * i) / 6;
-      const x = Math.cos(angle) * outerRadius;
-      const y = Math.sin(angle) * outerRadius;
-      const hue = (this.hueBase + i * 60) % 360;
+      const angle = outerAngleStep * i;
+      // HYPER-OPTIMIZATION: Use fast trig for outer pattern
+      const x = this.fastCos(angle) * outerRadius;
+      const y = this.fastSin(angle) * outerRadius;
+      const hue = this.fastMod360(this.hueBase + i * 60);
 
-      ctx.strokeStyle = `hsla(${hue}, 80%, 60%, ${0.4 + audioIntensity * 0.2})`;
+      ctx.strokeStyle = this.hsla(hue, 80, 60, outerAlpha);
       ctx.lineWidth = 1;
       ctx.setLineDash([5, 5]);
 
       ctx.beginPath();
-      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.arc(x, y, radius, 0, twoPi);
       ctx.stroke();
     }
     ctx.setLineDash([]);
