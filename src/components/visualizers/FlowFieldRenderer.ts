@@ -4024,20 +4024,37 @@ export class FlowFieldRenderer {
     trebleIntensity: number,
   ): void {
     const ctx = this.ctx;
-    const rings = 20;
 
-    
+    // HYPER-OPTIMIZATION: Aggressively reduce work while preserving overall portal look
+    // - Fewer rings and segments (LOD based on audio intensity)
+    // - Hoisted translate/save outside loop
+    // - Cheaper particle pass (fewer circles, only on a subset of rings)
+    const maxRingsBase = 16;
+    const extraRings = audioIntensity > 0.7 ? 4 : audioIntensity > 0.4 ? 2 : 0;
+    const rings = maxRingsBase + extraRings; // 16–20 rings instead of always 20
     const invRings = 1 / rings;
+
     const timeRotation = this.time * 0.002;
     const timeWave = this.time * 0.01;
     const timeParticle = this.time * 0.005;
     const timeHue = this.time * 0.5;
     const twoPi = FlowFieldRenderer.TWO_PI;
     const pi6 = Math.PI * 6;
-    const segments = 60;
+
+    // Reduce angular resolution; scale with treble but keep upper bound small
+    const baseSegments = 32;
+    const extraSegments = (trebleIntensity * 8) | 0; // 0–8
+    const segments = baseSegments + extraSegments; // 32–40 instead of 60
     const invSegments = 1 / segments;
-    const inv8 = 1 / 8;
-    const lineWidth = 4 + trebleIntensity * 3;
+
+    // Particles: fewer per ring, and only on sparse rings
+    const baseParticlesPerRing = 4; // was 8
+    const invParticles = 1 / baseParticlesPerRing;
+
+    const lineWidth = 3 + trebleIntensity * 2; // slightly thinner
+
+    ctx.save();
+    ctx.translate(this.centerX, this.centerY);
 
     for (let i = 0; i < rings; i++) {
       const progress = i * invRings;
@@ -4047,20 +4064,22 @@ export class FlowFieldRenderer {
       const alpha = 0.3 + (1 - progress) * 0.5 + audioIntensity * 0.2;
 
       ctx.save();
-      ctx.translate(this.centerX, this.centerY);
       ctx.rotate(rotation);
 
-      
       ctx.strokeStyle = this.hsla(hue, 85, 65, alpha);
       ctx.lineWidth = lineWidth;
       ctx.lineCap = "round";
 
+      // Draw wavy ring with fewer segments
       ctx.beginPath();
       for (let j = 0; j <= segments; j++) {
         const segmentProgress = j * invSegments;
         const angle = segmentProgress * twoPi;
-        
-        const r = radius * (1 + this.fastSin(segmentProgress * pi6 + timeWave) * 0.1);
+
+        // Keep the same wavy silhouette but evaluate less often
+        const r =
+          radius *
+          (1 + this.fastSin(segmentProgress * pi6 + timeWave) * 0.1);
         const x = this.fastCos(angle) * r;
         const y = this.fastSin(angle) * r;
 
@@ -4069,17 +4088,17 @@ export class FlowFieldRenderer {
       }
       ctx.stroke();
 
-      
-      if (i % 3 === 0) {
-        const particleSize = 3 + audioIntensity * 5;
+      // Sparse audio-reactive particles: every 4th ring only
+      if ((i & 3) === 0) {
+        const particleSize = 2.5 + audioIntensity * 3.5; // slightly smaller
         const particleHue = this.fastMod360(hue + 60);
-        for (let j = 0; j < 8; j++) {
-          const angle = twoPi * j * inv8 + timeParticle;
-          
+        ctx.fillStyle = this.hsla(particleHue, 90, 70, 0.8);
+
+        for (let j = 0; j < baseParticlesPerRing; j++) {
+          const angle = twoPi * j * invParticles + timeParticle;
           const x = this.fastCos(angle) * radius;
           const y = this.fastSin(angle) * radius;
 
-          ctx.fillStyle = this.hsla(particleHue, 90, 70, 0.8);
           ctx.beginPath();
           ctx.arc(x, y, particleSize, 0, twoPi);
           ctx.fill();
@@ -4089,7 +4108,9 @@ export class FlowFieldRenderer {
       ctx.restore();
     }
 
-    
+    ctx.restore();
+
+    // Central void remains as main focal point (single gradient draw)
     const voidSize = 30 + bassIntensity * 20;
     const voidGradient = ctx.createRadialGradient(
       this.centerX,
