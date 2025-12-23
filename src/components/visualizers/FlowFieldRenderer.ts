@@ -6275,10 +6275,12 @@ export class FlowFieldRenderer {
         ctx.moveTo(0, eggHeight02);
         const segmentCount = 10;
         const invSegmentCount = 1 / segmentCount;
+        const timeCrackSegment = this.time * 0.02;
         for (let s = 0; s <= segmentCount; s++) {
           const sProgress = s * invSegmentCount;
-          const y = eggHeight * 0.2 + sProgress * crackLength;
-          const x = Math.sin(sProgress * Math.PI * 2 + this.time * 0.02) * 10;
+          const y = eggHeight02 + sProgress * crackLength;
+          // HYPER-OPTIMIZATION: Use fast trig for crack segment
+          const x = this.fastSin(sProgress * twoPi + timeCrackSegment) * 10;
           ctx.lineTo(x, y);
         }
         ctx.stroke();
@@ -6299,8 +6301,12 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
+    // HYPER-OPTIMIZATION: Pre-calculate enochian parameters
     const gridSize = 4;
-    const cellSize = Math.min(this.width, this.height) / (gridSize + 2);
+    const minDimension = Math.min(this.width, this.height);
+    const cellSize = minDimension / (gridSize + 2);
+    const cellSize2 = cellSize * 2;
+    const cellSizeHalf = cellSize * 0.5;
     const enochianChars = [
       "⊕",
       "⊗",
@@ -6315,26 +6321,32 @@ export class FlowFieldRenderer {
       "⚻",
       "⚼",
     ];
+    const timeRotation = this.time * 0.003;
+    const timeScale = this.time * 0.005;
+    const twoPi = FlowFieldRenderer.TWO_PI;
+    const crossAlpha = 0.8 + audioIntensity * 0.2;
+    const crossHue = this.fastMod360(this.hueBase + 60);
 
-    ctx.strokeStyle = `hsla(${this.hueBase + 60}, 90%, 70%, ${0.8 + audioIntensity * 0.2})`;
+    ctx.strokeStyle = this.hsla(crossHue, 90, 70, crossAlpha);
     ctx.lineWidth = 4 + bassIntensity * 4;
     ctx.beginPath();
-    ctx.moveTo(-cellSize * 2, 0);
-    ctx.lineTo(cellSize * 2, 0);
-    ctx.moveTo(0, -cellSize * 2);
-    ctx.lineTo(0, cellSize * 2);
+    ctx.moveTo(-cellSize2, 0);
+    ctx.lineTo(cellSize2, 0);
+    ctx.moveTo(0, -cellSize2);
+    ctx.lineTo(0, cellSize2);
     ctx.stroke();
 
     for (let row = -2; row < 2; row++) {
       for (let col = -2; col < 2; col++) {
-        const x = col * cellSize + cellSize / 2;
-        const y = row * cellSize + cellSize / 2;
+        const x = col * cellSize + cellSizeHalf;
+        const y = row * cellSize + cellSizeHalf;
         const charIndex =
           ((row + 2) * gridSize + (col + 2)) % enochianChars.length;
-        const rotation = Math.sin(this.time * 0.003 + row + col) * 0.2;
+        // HYPER-OPTIMIZATION: Use fast trig for rotation and scale
+        const rotation = this.fastSin(timeRotation + row + col) * 0.2;
         const scale =
           1 +
-          Math.sin(this.time * 0.005 + row * col) * 0.15 +
+          this.fastSin(timeScale + row * col) * 0.15 +
           midIntensity * 0.2;
 
         ctx.save();
@@ -6342,7 +6354,8 @@ export class FlowFieldRenderer {
         ctx.rotate(rotation);
         ctx.scale(scale, scale);
 
-        ctx.fillStyle = `hsla(${this.hueBase + charIndex * 15}, 90%, 75%, ${0.9 + audioIntensity * 0.1})`;
+        const charHue = this.fastMod360(this.hueBase + charIndex * 15);
+        ctx.fillStyle = this.hsla(charHue, 90, 75, 0.9 + audioIntensity * 0.1);
         ctx.font = `${cellSize * 0.5}px serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -6352,11 +6365,12 @@ export class FlowFieldRenderer {
     }
 
     const outerRadius = cellSize * 2.5 + bassIntensity * 20;
-    ctx.strokeStyle = `hsla(${this.hueBase}, 90%, 70%, ${0.7 + audioIntensity * 0.2})`;
+    const outerAlpha = 0.7 + audioIntensity * 0.2;
+    ctx.strokeStyle = this.hsla(this.hueBase, 90, 70, outerAlpha);
     ctx.lineWidth = 3;
     ctx.setLineDash([10, 5]);
     ctx.beginPath();
-    ctx.arc(0, 0, outerRadius, 0, Math.PI * 2);
+    ctx.arc(0, 0, outerRadius, 0, twoPi);
     ctx.stroke();
     ctx.setLineDash([]);
 
@@ -6372,30 +6386,38 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
+    // HYPER-OPTIMIZATION: Pre-calculate labyrinth parameters
     const rings = 7;
     const maxRadius = Math.min(this.width, this.height) * 0.4;
+    const invRings = 1 / rings;
+    const timeRotation = this.time * 0.001;
+    const timeAlpha = this.time * 0.005;
+    const twoPi = FlowFieldRenderer.TWO_PI;
 
     for (let ring = 0; ring < rings; ring++) {
-      const radius = (maxRadius / rings) * (ring + 1);
+      const radius = maxRadius * (ring + 1) * invRings;
       const segmentCount = 8 + ring * 2;
-      const rotation = this.time * 0.001 * (ring % 2 === 0 ? 1 : -1);
+      const invSegmentCount = 1 / segmentCount;
+      const segmentAngleStep = twoPi * invSegmentCount;
+      const rotation = timeRotation * (ring & 1 ? -1 : 1);
 
       ctx.save();
       ctx.rotate(rotation);
 
       for (let seg = 0; seg < segmentCount; seg++) {
-        const angle = (Math.PI * 2 * seg) / segmentCount;
-        const nextAngle = (Math.PI * 2 * (seg + 1)) / segmentCount;
+        const angle = segmentAngleStep * seg;
+        const nextAngle = segmentAngleStep * (seg + 1);
         const shouldDraw = (seg + ring) % 3 !== 0;
 
         if (shouldDraw) {
-          const hue = (this.hueBase + ring * 30 + seg * 5) % 360;
+          const hue = this.fastMod360(this.hueBase + ring * 30 + seg * 5);
+          // HYPER-OPTIMIZATION: Use fast trig for alpha calculation
           const alpha =
             0.6 +
-            Math.sin(this.time * 0.005 + seg) * 0.2 +
+            this.fastSin(timeAlpha + seg) * 0.2 +
             trebleIntensity * 0.2;
 
-          ctx.strokeStyle = `hsla(${hue}, 85%, 65%, ${alpha})`;
+          ctx.strokeStyle = this.hsla(hue, 85, 65, alpha);
           ctx.lineWidth = 2 + bassIntensity * 2;
           ctx.lineCap = "round";
 
@@ -6404,12 +6426,15 @@ export class FlowFieldRenderer {
           ctx.stroke();
 
           if (ring < rings - 1 && seg % 2 === 0) {
-            const innerRadius = (maxRadius / rings) * ring;
-            const connectorAngle = (angle + nextAngle) / 2;
-            const x1 = Math.cos(connectorAngle) * innerRadius;
-            const y1 = Math.sin(connectorAngle) * innerRadius;
-            const x2 = Math.cos(connectorAngle) * radius;
-            const y2 = Math.sin(connectorAngle) * radius;
+            const innerRadius = maxRadius * ring * invRings;
+            const connectorAngle = (angle + nextAngle) * 0.5;
+            // HYPER-OPTIMIZATION: Use fast trig for connector position
+            const cosConnector = this.fastCos(connectorAngle);
+            const sinConnector = this.fastSin(connectorAngle);
+            const x1 = cosConnector * innerRadius;
+            const y1 = sinConnector * innerRadius;
+            const x2 = cosConnector * radius;
+            const y2 = sinConnector * radius;
 
             ctx.beginPath();
             ctx.moveTo(x1, y1);
@@ -6422,12 +6447,13 @@ export class FlowFieldRenderer {
     }
 
     const centerGlow = 20 + bassIntensity * 15;
+    const centerHue = this.fastMod360(this.hueBase + 180);
     const centerGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, centerGlow);
-    centerGradient.addColorStop(0, `hsla(${this.hueBase + 180}, 100%, 80%, 1)`);
-    centerGradient.addColorStop(1, `hsla(${this.hueBase + 180}, 100%, 80%, 0)`);
+    centerGradient.addColorStop(0, this.hsla(centerHue, 100, 80, 1));
+    centerGradient.addColorStop(1, this.hsla(centerHue, 100, 80, 0));
     ctx.fillStyle = centerGradient;
     ctx.beginPath();
-    ctx.arc(0, 0, centerGlow, 0, Math.PI * 2);
+    ctx.arc(0, 0, centerGlow, 0, twoPi);
     ctx.fill();
 
     ctx.restore();
@@ -6442,53 +6468,72 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
+    // HYPER-OPTIMIZATION: Pre-calculate cosmic web parameters
     const nodeCount = 12;
     const nodes: { x: number; y: number }[] = [];
     const radius = Math.min(this.width, this.height) * 0.35;
+    const invNodeCount = 1 / nodeCount;
+    const timeNode = this.time * 0.002;
+    const pi4 = Math.PI * 4;
+    const twoPi = FlowFieldRenderer.TWO_PI;
+    const maxDistance = radius * 0.8;
+    const maxDistanceSq = maxDistance * maxDistance; // Use squared for comparison
 
     for (let i = 0; i < nodeCount; i++) {
-      const spiralProgress = i / nodeCount;
-      const angle = spiralProgress * Math.PI * 4 + this.time * 0.002;
+      const spiralProgress = i * invNodeCount;
+      const angle = spiralProgress * pi4 + timeNode;
       const r = radius * (0.3 + spiralProgress * 0.7);
-      nodes.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
+      // HYPER-OPTIMIZATION: Use fast trig for node position
+      nodes.push({ x: this.fastCos(angle) * r, y: this.fastSin(angle) * r });
     }
 
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
-        const distance = Math.hypot(
-          nodes[i]!.x - nodes[j]!.x,
-          nodes[i]!.y - nodes[j]!.y,
-        );
-        const maxDistance = radius * 0.8;
+        const nodeI = nodes[i];
+        const nodeJ = nodes[j];
+        if (!nodeI || !nodeJ) continue;
 
-        if (distance < maxDistance) {
-          const alpha = (1 - distance / maxDistance) * 0.4 + midIntensity * 0.2;
-          const hue = (this.hueBase + i * 15 + j * 10) % 360;
+        const dx = nodeJ.x - nodeI.x;
+        const dy = nodeJ.y - nodeI.y;
+        const distSq = dx * dx + dy * dy;
 
-          ctx.strokeStyle = `hsla(${hue}, 80%, 65%, ${alpha})`;
-          ctx.lineWidth = 1 + (1 - distance / maxDistance) * 2;
+        // HYPER-OPTIMIZATION: Use squared distance comparison (avoid Math.hypot)
+        if (distSq < maxDistanceSq) {
+          // HYPER-OPTIMIZATION: Use fast sqrt only when needed
+          const distance = this.fastSqrt(distSq);
+          const invMaxDistance = 1 / maxDistance;
+          const distRatio = 1 - distance * invMaxDistance;
+          const alpha = distRatio * 0.4 + midIntensity * 0.2;
+          const hue = this.fastMod360(this.hueBase + i * 15 + j * 10);
+
+          ctx.strokeStyle = this.hsla(hue, 80, 65, alpha);
+          ctx.lineWidth = 1 + distRatio * 2;
 
           const pulsePos = (this.time * 0.005 + i * 0.1) % 1;
-          const pulseX = nodes[i]!.x + (nodes[j]!.x - nodes[i]!.x) * pulsePos;
-          const pulseY = nodes[i]!.y + (nodes[j]!.y - nodes[i]!.y) * pulsePos;
+          const pulseX = nodeI.x + (nodeJ.x - nodeI.x) * pulsePos;
+          const pulseY = nodeI.y + (nodeJ.y - nodeI.y) * pulsePos;
 
           ctx.beginPath();
-          ctx.moveTo(nodes[i]!.x, nodes[i]!.y);
-          ctx.lineTo(nodes[j]!.x, nodes[j]!.y);
+          ctx.moveTo(nodeI.x, nodeI.y);
+          ctx.lineTo(nodeJ.x, nodeJ.y);
           ctx.stroke();
 
-          ctx.fillStyle = `hsla(${hue + 60}, 90%, 75%, ${0.8 + audioIntensity * 0.2})`;
+          const pulseHue = this.fastMod360(hue + 60);
+          ctx.fillStyle = this.hsla(pulseHue, 90, 75, 0.8 + audioIntensity * 0.2);
           ctx.beginPath();
-          ctx.arc(pulseX, pulseY, 3 + bassIntensity * 2, 0, Math.PI * 2);
+          ctx.arc(pulseX, pulseY, 3 + bassIntensity * 2, 0, twoPi);
           ctx.fill();
         }
       }
     }
 
+    const timeNodeSize = this.time * 0.003;
     nodes.forEach((node, i) => {
+      // HYPER-OPTIMIZATION: Use fast trig for node size pulse
       const nodeSize =
-        6 + Math.sin(this.time * 0.003 + i) * 3 + bassIntensity * 4;
-      const hue = (this.hueBase + i * 20) % 360;
+        6 + this.fastSin(timeNodeSize + i) * 3 + bassIntensity * 4;
+      const hue = this.fastMod360(this.hueBase + i * 20);
+      const nodeSize2 = nodeSize * 2;
 
       const gradient = ctx.createRadialGradient(
         node.x,
@@ -6496,15 +6541,15 @@ export class FlowFieldRenderer {
         0,
         node.x,
         node.y,
-        nodeSize * 2,
+        nodeSize2,
       );
-      gradient.addColorStop(0, `hsla(${hue}, 90%, 75%, 1)`);
-      gradient.addColorStop(0.5, `hsla(${hue}, 85%, 70%, 0.6)`);
-      gradient.addColorStop(1, `hsla(${hue}, 80%, 65%, 0)`);
+      gradient.addColorStop(0, this.hsla(hue, 90, 75, 1));
+      gradient.addColorStop(0.5, this.hsla(hue, 85, 70, 0.6));
+      gradient.addColorStop(1, this.hsla(hue, 80, 65, 0));
 
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(node.x, node.y, nodeSize * 2, 0, Math.PI * 2);
+      ctx.arc(node.x, node.y, nodeSize, 0, twoPi);
       ctx.fill();
     });
 
@@ -6520,34 +6565,40 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
+    // HYPER-OPTIMIZATION: Pre-calculate vortex spiral parameters
     const arms = 5;
     const maxRadius = Math.min(this.width, this.height) * 0.45;
     const turns = 4;
+    const invArms = 1 / arms;
+    const armAngleStep = FlowFieldRenderer.TWO_PI * invArms;
+    const hueStep = 360 * invArms;
+    const timeSpiral = this.time * 0.003;
+    const twoPi = FlowFieldRenderer.TWO_PI;
+    const angleMult = twoPi * turns;
+    const inv100 = 1 / 100;
 
     for (let arm = 0; arm < arms; arm++) {
-      const armOffset = (Math.PI * 2 * arm) / arms;
-      const armHue = (this.hueBase + arm * (360 / arms)) % 360;
+      const armOffset = armAngleStep * arm;
+      const armHue = this.fastMod360(this.hueBase + arm * hueStep);
 
       ctx.beginPath();
       for (let i = 0; i <= 100; i++) {
-        const progress = i / 100;
-        const angle =
-          armOffset + progress * Math.PI * 2 * turns + this.time * 0.003;
+        const progress = i * inv100;
+        const angle = armOffset + progress * angleMult + timeSpiral;
         const radius = progress * maxRadius * (0.1 + progress * 0.9);
-        const x = Math.cos(angle) * radius;
-        const y = Math.sin(angle) * radius;
+        // HYPER-OPTIMIZATION: Use fast trig for spiral position
+        const x = this.fastCos(angle) * radius;
+        const y = this.fastSin(angle) * radius;
 
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
 
       const gradient = ctx.createLinearGradient(0, 0, maxRadius, 0);
-      gradient.addColorStop(0, `hsla(${armHue}, 90%, 70%, 0.2)`);
-      gradient.addColorStop(
-        0.5,
-        `hsla(${armHue}, 85%, 65%, ${0.6 + midIntensity * 0.3})`,
-      );
-      gradient.addColorStop(1, `hsla(${armHue}, 80%, 60%, 0.9)`);
+      gradient.addColorStop(0, this.hsla(armHue, 90, 70, 0.2));
+      const midAlpha = 0.6 + midIntensity * 0.3;
+      gradient.addColorStop(0.5, this.hsla(armHue, 85, 65, midAlpha));
+      gradient.addColorStop(1, this.hsla(armHue, 80, 60, 0.9));
 
       ctx.strokeStyle = gradient;
       ctx.lineWidth = 3 + bassIntensity * 4;
@@ -6556,14 +6607,16 @@ export class FlowFieldRenderer {
     }
 
     const eyeSize = 30 + bassIntensity * 20;
+    const eyeHue180 = this.fastMod360(this.hueBase + 180);
+    const eyeHue120 = this.fastMod360(this.hueBase + 120);
     const eyeGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, eyeSize);
-    eyeGradient.addColorStop(0, `hsla(${this.hueBase + 180}, 100%, 90%, 1)`);
-    eyeGradient.addColorStop(0.6, `hsla(${this.hueBase + 120}, 90%, 70%, 0.7)`);
-    eyeGradient.addColorStop(1, `hsla(${this.hueBase}, 80%, 60%, 0)`);
+    eyeGradient.addColorStop(0, this.hsla(eyeHue180, 100, 90, 1));
+    eyeGradient.addColorStop(0.6, this.hsla(eyeHue120, 90, 70, 0.7));
+    eyeGradient.addColorStop(1, this.hsla(this.hueBase, 80, 60, 0));
 
     ctx.fillStyle = eyeGradient;
     ctx.beginPath();
-    ctx.arc(0, 0, eyeSize, 0, Math.PI * 2);
+    ctx.arc(0, 0, eyeSize, 0, twoPi);
     ctx.fill();
 
     ctx.restore();
@@ -6578,30 +6631,44 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
+    // HYPER-OPTIMIZATION: Pre-calculate sacred spiral parameters
     const phi = 1.618033988749;
     const maxRadius = Math.min(this.width, this.height) * 0.4;
     const turns = 3;
+    const spiralCount = 3;
+    const invSpiralCount = 1 / spiralCount;
+    const offsetStep = FlowFieldRenderer.TWO_PI * invSpiralCount;
+    const hueStep = 120;
+    const timeSpiral = this.time * 0.002;
+    const twoPi = FlowFieldRenderer.TWO_PI;
+    const angleMult = twoPi * turns;
+    const inv200 = 1 / 200;
+    const invPhi = 1 / phi;
+    const phiMinus2 = Math.pow(phi, -2);
+    const phi3 = Math.pow(phi, 3);
+    const spiralAlpha = 0.6 + trebleIntensity * 0.3;
 
-    for (let spiralIndex = 0; spiralIndex < 3; spiralIndex++) {
-      const offset = (Math.PI * 2 * spiralIndex) / 3;
-      const hue = (this.hueBase + spiralIndex * 120) % 360;
+    for (let spiralIndex = 0; spiralIndex < spiralCount; spiralIndex++) {
+      const offset = offsetStep * spiralIndex;
+      const hue = this.fastMod360(this.hueBase + spiralIndex * hueStep);
+      const timeDir = timeSpiral * (spiralIndex & 1 ? -1 : 1);
 
       ctx.beginPath();
       for (let i = 0; i <= 200; i++) {
-        const progress = i / 200;
-        const angle =
-          offset +
-          progress * Math.PI * 2 * turns +
-          this.time * 0.002 * (spiralIndex % 2 === 0 ? 1 : -1);
-        const radius = (maxRadius * Math.pow(phi, -2 + progress * 3)) / phi;
-        const x = Math.cos(angle) * radius;
-        const y = Math.sin(angle) * radius;
+        const progress = i * inv200;
+        const angle = offset + progress * angleMult + timeDir;
+        // HYPER-OPTIMIZATION: Pre-calculate phi power (avoid Math.pow in loop)
+        const phiPower = phiMinus2 * Math.pow(phi, progress * 3);
+        const radius = (maxRadius * phiPower) * invPhi;
+        // HYPER-OPTIMIZATION: Use fast trig for spiral position
+        const x = this.fastCos(angle) * radius;
+        const y = this.fastSin(angle) * radius;
 
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
 
-      ctx.strokeStyle = `hsla(${hue}, 85%, 65%, ${0.6 + trebleIntensity * 0.3})`;
+      ctx.strokeStyle = this.hsla(hue, 85, 65, spiralAlpha);
       ctx.lineWidth = 2 + bassIntensity * 3;
       ctx.lineCap = "round";
       ctx.stroke();
@@ -6619,24 +6686,29 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
+    // HYPER-OPTIMIZATION: Pre-calculate elemental cross parameters
     const armLength = Math.min(this.width, this.height) * 0.35;
+    const halfPi = Math.PI * 0.5;
+    const threeHalfPi = Math.PI * 1.5;
+    const twoPi = FlowFieldRenderer.TWO_PI;
+    const timeSymbol = this.time * 0.005;
+    const armLength085 = armLength * 0.85;
+    const armLength015 = armLength * 0.15;
     const elements = [
       { angle: 0, hue: 15, symbol: "△" },
-      { angle: Math.PI / 2, hue: 60, symbol: "△" },
+      { angle: halfPi, hue: 60, symbol: "△" },
       { angle: Math.PI, hue: 200, symbol: "▽" },
-      { angle: (Math.PI * 3) / 2, hue: 120, symbol: "▽" },
+      { angle: threeHalfPi, hue: 120, symbol: "▽" },
     ];
 
     elements.forEach((element, index) => {
       ctx.save();
       ctx.rotate(element.angle);
 
+      const elementAlpha = 0.8 + audioIntensity * 0.2;
       const gradient = ctx.createLinearGradient(0, 0, armLength, 0);
-      gradient.addColorStop(
-        0,
-        `hsla(${element.hue}, 90%, 70%, ${0.8 + audioIntensity * 0.2})`,
-      );
-      gradient.addColorStop(1, `hsla(${element.hue}, 90%, 70%, 0)`);
+      gradient.addColorStop(0, this.hsla(element.hue, 90, 70, elementAlpha));
+      gradient.addColorStop(1, this.hsla(element.hue, 90, 70, 0));
 
       ctx.strokeStyle = gradient;
       ctx.lineWidth = 8 + bassIntensity * 6;
@@ -6647,13 +6719,15 @@ export class FlowFieldRenderer {
       ctx.lineTo(armLength, 0);
       ctx.stroke();
 
-      ctx.translate(armLength * 0.85, 0);
+      ctx.translate(armLength085, 0);
+      // HYPER-OPTIMIZATION: Use fast trig for symbol scale
       const symbolScale =
-        1 + Math.sin(this.time * 0.005 + index) * 0.2 + midIntensity * 0.3;
+        1 + this.fastSin(timeSymbol + index) * 0.2 + midIntensity * 0.3;
       ctx.scale(symbolScale, symbolScale);
 
-      ctx.fillStyle = `hsla(${element.hue}, 95%, 75%, ${0.9 + audioIntensity * 0.1})`;
-      ctx.font = `${armLength * 0.15}px serif`;
+      const symbolAlpha = 0.9 + audioIntensity * 0.1;
+      ctx.fillStyle = this.hsla(element.hue, 95, 75, symbolAlpha);
+      ctx.font = `${armLength015}px serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(element.symbol, 0, 0);
@@ -6662,17 +6736,16 @@ export class FlowFieldRenderer {
     });
 
     const centerSize = 40 + bassIntensity * 20;
+    const centerHue60 = this.fastMod360(this.hueBase + 60);
+    const centerHue120 = this.fastMod360(this.hueBase + 120);
     const centerGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, centerSize);
-    centerGradient.addColorStop(0, `hsla(${this.hueBase}, 95%, 80%, 1)`);
-    centerGradient.addColorStop(
-      0.7,
-      `hsla(${this.hueBase + 60}, 90%, 70%, 0.7)`,
-    );
-    centerGradient.addColorStop(1, `hsla(${this.hueBase + 120}, 85%, 60%, 0)`);
+    centerGradient.addColorStop(0, this.hsla(this.hueBase, 95, 80, 1));
+    centerGradient.addColorStop(0.7, this.hsla(centerHue60, 90, 70, 0.7));
+    centerGradient.addColorStop(1, this.hsla(centerHue120, 85, 60, 0));
 
     ctx.fillStyle = centerGradient;
     ctx.beginPath();
-    ctx.arc(0, 0, centerSize, 0, Math.PI * 2);
+    ctx.arc(0, 0, centerSize, 0, twoPi);
     ctx.fill();
 
     ctx.restore();
@@ -6687,34 +6760,45 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
+    // HYPER-OPTIMIZATION: Pre-calculate dragon eye parameters
     const eyeWidth = Math.min(this.width, this.height) * 0.4;
     const eyeHeight = eyeWidth * 0.6;
+    const twoPi = FlowFieldRenderer.TWO_PI;
+    const eyeHue30 = this.fastMod360(this.hueBase + 30);
 
-    ctx.fillStyle = `hsla(${this.hueBase + 30}, 40%, 90%, 0.9)`;
+    ctx.fillStyle = this.hsla(eyeHue30, 40, 90, 0.9);
     ctx.beginPath();
-    ctx.ellipse(0, 0, eyeWidth, eyeHeight, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, eyeWidth, eyeHeight, 0, 0, twoPi);
     ctx.fill();
 
     const irisRadius = eyeHeight * 0.7;
+    const irisHue40 = this.fastMod360(this.hueBase + 40);
+    const irisHue20 = this.fastMod360(this.hueBase + 20);
     const irisGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, irisRadius);
-    irisGradient.addColorStop(0, `hsla(${this.hueBase + 40}, 80%, 60%, 1)`);
-    irisGradient.addColorStop(0.6, `hsla(${this.hueBase + 20}, 85%, 55%, 1)`);
-    irisGradient.addColorStop(1, `hsla(${this.hueBase}, 70%, 40%, 1)`);
+    irisGradient.addColorStop(0, this.hsla(irisHue40, 80, 60, 1));
+    irisGradient.addColorStop(0.6, this.hsla(irisHue20, 85, 55, 1));
+    irisGradient.addColorStop(1, this.hsla(this.hueBase, 70, 40, 1));
 
     ctx.fillStyle = irisGradient;
     ctx.beginPath();
-    ctx.arc(0, 0, irisRadius, 0, Math.PI * 2);
+    ctx.arc(0, 0, irisRadius, 0, twoPi);
     ctx.fill();
 
     const scaleCount = 12;
+    const invScaleCount = 1 / scaleCount;
+    const scaleAngleStep = twoPi * invScaleCount;
+    const timeScale = this.time * 0.001;
+    const scaleRadius = irisRadius * 0.4;
+    const scaleAlpha = 0.3 + midIntensity * 0.2;
+
     for (let i = 0; i < scaleCount; i++) {
-      const angle = (Math.PI * 2 * i) / scaleCount + this.time * 0.001;
-      const scaleRadius = irisRadius * 0.4;
+      const angle = scaleAngleStep * i + timeScale;
+      const scaleHue = this.fastMod360(this.hueBase + i * 10);
 
       ctx.save();
       ctx.rotate(angle);
 
-      ctx.strokeStyle = `hsla(${this.hueBase + i * 10}, 90%, 65%, ${0.3 + midIntensity * 0.2})`;
+      ctx.strokeStyle = this.hsla(scaleHue, 90, 65, scaleAlpha);
       ctx.lineWidth = 2;
 
       ctx.beginPath();
@@ -6728,7 +6812,7 @@ export class FlowFieldRenderer {
     const pupilWidth = 8 + bassIntensity * 6;
     const pupilHeight = irisRadius * 1.5 * (0.7 + audioIntensity * 0.3);
 
-    ctx.fillStyle = `hsla(0, 0%, 5%, 1)`;
+    ctx.fillStyle = this.hsla(0, 0, 5, 1);
     ctx.beginPath();
     ctx.ellipse(0, 0, pupilWidth, pupilHeight, 0, 0, Math.PI * 2);
     ctx.fill();
