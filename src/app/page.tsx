@@ -29,13 +29,13 @@ async function getFirstTrackFromSearch(query: string): Promise<Track | null> {
 
 function getAlbumCoverImage(track: Track | null): string {
   if (!track?.album) {
-    return `${baseUrl}/emily-the-strange.png`;
+    return "";
   }
 
   // Prefer larger images for Open Graph (cover_big or cover_xl)
   const coverImage =
-    track.album.cover_big ||
     track.album.cover_xl ||
+    track.album.cover_big ||
     track.album.cover_medium ||
     track.album.cover_small ||
     track.album.cover;
@@ -44,7 +44,28 @@ function getAlbumCoverImage(track: Track | null): string {
     return coverImage;
   }
 
-  return `${baseUrl}/emily-the-strange.png`;
+  return "";
+}
+
+function buildOgImageUrl(track: Track | null, baseUrl: string): string {
+  if (!track) {
+    // Default Emily the Strange
+    return `${baseUrl}/api/og`;
+  }
+
+  // Dynamic track image with album art, title, artist, album
+  const params = new URLSearchParams();
+  params.set("title", track.title);
+  params.set("artist", track.artist.name);
+  if (track.album?.title) {
+    params.set("album", track.album.title);
+  }
+  const coverImage = getAlbumCoverImage(track);
+  if (coverImage) {
+    params.set("cover", coverImage);
+  }
+
+  return `${baseUrl}/api/og?${params.toString()}`;
 }
 
 export async function generateMetadata({
@@ -55,7 +76,8 @@ export async function generateMetadata({
   const params = await searchParams;
   const query = params?.q;
 
-  // Default metadata
+  // Default metadata (no query parameter)
+  const defaultOgImage = buildOgImageUrl(null, baseUrl);
   const defaultMetadata: Metadata = {
     title: "darkfloor.art",
     description:
@@ -69,7 +91,7 @@ export async function generateMetadata({
       siteName: "darkfloor.art",
       images: [
         {
-          url: `${baseUrl}/emily-the-strange.png`,
+          url: defaultOgImage,
           width: 1200,
           height: 630,
           alt: "darkfloor.art - Modern music streaming platform",
@@ -81,6 +103,7 @@ export async function generateMetadata({
       title: "darkfloor.art",
       description:
         "Modern music streaming and discovery platform with smart recommendations",
+      images: [defaultOgImage],
     },
   };
 
@@ -91,14 +114,14 @@ export async function generateMetadata({
 
   // Fetch first track from search
   const firstTrack = await getFirstTrackFromSearch(query);
-  const coverImage = getAlbumCoverImage(firstTrack);
+  const ogImage = buildOgImageUrl(firstTrack, baseUrl);
 
   // Build dynamic metadata
   const trackTitle = firstTrack
     ? `${firstTrack.title} by ${firstTrack.artist.name}`
     : `Search: ${query}`;
   const description = firstTrack
-    ? `Listen to ${firstTrack.title} by ${firstTrack.artist.name} on darkfloor.art`
+    ? `Listen to ${firstTrack.title} by ${firstTrack.artist.name}${firstTrack.album?.title ? ` from ${firstTrack.album.title}` : ""} on darkfloor.art`
     : `Search results for "${query}" on darkfloor.art`;
 
   return {
@@ -107,12 +130,12 @@ export async function generateMetadata({
     openGraph: {
       title: trackTitle,
       description,
-      type: "website",
+      type: "music.song",
       url: `${baseUrl}/?q=${encodeURIComponent(query)}`,
       siteName: "darkfloor.art",
       images: [
         {
-          url: coverImage,
+          url: ogImage,
           width: 1200,
           height: 630,
           alt: firstTrack
@@ -125,6 +148,7 @@ export async function generateMetadata({
       card: "summary_large_image",
       title: trackTitle,
       description,
+      images: [ogImage],
     },
   };
 }

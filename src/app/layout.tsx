@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     siteName: "darkfloor.art",
     images: [
       {
-        url: `${baseUrl}/emily-the-strange.png`,
+        url: `${baseUrl}/api/og`,
         width: 1200,
         height: 630,
         alt: "darkfloor.art - Modern music streaming platform",
@@ -56,6 +56,7 @@ export const metadata: Metadata = {
     title: "darkfloor.art",
     description:
       "Modern music streaming and discovery platform with smart recommendations",
+    images: [`${baseUrl}/api/og`],
   },
   other: {
     // Enhanced mobile meta tags
