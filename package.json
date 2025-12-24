@@ -4,9 +4,9 @@
   "description": "A modern music streaming and discovery platform with intelligent recommendations, advanced audio features, and a beautiful user interface",
   "private": true,
   "type": "module",
-  "email": "cirrus.okimasu@gmail.com",
-  "author": "Cirrus Okimasu",
-  "license": "MIT",
+  "email": "Christian / soulwax@github",
+  "author": "Christian",
+  "license": "GPLv3",
   "homepage": "https://darkfloor.art",
   "repository": {
     "type": "git",
