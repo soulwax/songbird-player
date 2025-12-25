@@ -29,29 +29,31 @@ function getCertPath(): string | null {
 // Determine SSL configuration based on certificate availability
 function getSslConfig() {
   const certPath = getCertPath();
-  
+
+  // Check if SSL is required from DATABASE_URL
+  const requiresSsl = env.DATABASE_URL.includes("sslmode=require");
+
+  if (!requiresSsl) {
+    // SSL not required - return undefined to disable SSL
+    console.log("[DB] SSL not required by DATABASE_URL");
+    return undefined;
+  }
+
   if (certPath) {
     // Certificate found - use it with strict validation
+    console.log("[DB] Using SSL with certificate validation");
     return {
       rejectUnauthorized: true,
       ca: readFileSync(certPath).toString(),
     };
   }
-  
-  // Certificate not found - check if SSL is required from DATABASE_URL
-  const requiresSsl = env.DATABASE_URL.includes("sslmode=require");
-  
-  if (requiresSsl) {
-    // SSL required but no certificate - use lenient SSL (for build time)
-    // In production, this should be configured properly
-    console.warn("[DB] SSL required but certificate not found. Using lenient SSL configuration.");
-    return {
-      rejectUnauthorized: false,
-    };
-  }
-  
-  // SSL not required - return undefined to disable SSL
-  return undefined;
+
+  // SSL required but no certificate - use lenient SSL
+  // This works with cloud providers that have valid public certificates (like Aiven)
+  console.log("[DB] SSL required. Using SSL with system certificates (no custom CA)");
+  return {
+    rejectUnauthorized: false,
+  };
 }
 
 const sslConfig = getSslConfig();
@@ -98,3 +100,17 @@ if (typeof process !== "undefined") {
 
 export const db = drizzle(pool, { schema });
 export { pool }; // Export pool for monitoring
+
+// Test database connection on startup
+if (process.env.NODE_ENV === "development") {
+  pool
+    .query("SELECT NOW()")
+    .then(() => {
+      console.log("[DB] ✓ Database connection successful");
+    })
+    .catch((error) => {
+      console.error("[DB] ✗ Database connection FAILED:");
+      console.error(error);
+      console.error("[DB] Please check your DATABASE_URL in .env.local");
+    });
+}

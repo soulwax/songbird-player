@@ -43,17 +43,6 @@ const {
 type VisualizerDimensions = { width: number; height: number };
 type VisualizerPosition = { x: number; y: number };
 
-type VisualizerType = (typeof VISUALIZER_TYPES)[number];
-type VisualizerDimensions = { width: number; height: number };
-type VisualizerPosition = { x: number; y: number };
-
-const MIN_WIDTH = 220;
-const MIN_HEIGHT = 110;
-const VIEWPORT_PADDING = 16;
-const PLAYER_STACK_HEIGHT = 190;
-const MAX_EXPANDED_WIDTH = 960;
-const MAX_EXPANDED_HEIGHT = 520;
-
 const formatVisualizerLabel = (value: VisualizerType) =>
   value
     .split("-")
@@ -63,8 +52,8 @@ const formatVisualizerLabel = (value: VisualizerType) =>
 export function AudioVisualizer({
   audioElement,
   isPlaying,
-  width: initialWidth = 300,
-  height: initialHeight = 80,
+  width: _initialWidth = 300,
+  height: _initialHeight = 80,
   barCount = 64,
   barGap = 2,
   type = "flowfield",
@@ -78,6 +67,7 @@ export function AudioVisualizer({
   ensureVisibleSignal,
 }: AudioVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -89,8 +79,8 @@ export function AudioVisualizer({
   const dragStartRef = useRef({ x: 0, y: 0, initialX: 0, initialY: 0 });
   const typeLabelTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const initialDimensions = {
-    width: Math.max(MIN_WIDTH, persistedState?.width ?? width),
-    height: Math.max(MIN_HEIGHT, persistedState?.height ?? height),
+    width: Math.max(MIN_WIDTH, persistedState!.width ?? _initialWidth),
+    height: Math.max(MIN_HEIGHT, persistedState!.height ?? _initialHeight),
   };
   const initialCollapsedDimensions = {
     width: Math.max(

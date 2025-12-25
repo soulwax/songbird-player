@@ -47,6 +47,16 @@ if (pm2Port) {
   process.env.PORT = pm2Port;
 }
 
+// Debug: Log critical environment variables
+console.log("=== Environment Variables Loaded ===");
+console.log("NODE_ENV:", process.env.NODE_ENV);
+console.log("PORT:", process.env.PORT);
+console.log("ELECTRON_BUILD:", process.env.ELECTRON_BUILD);
+console.log("NEXTAUTH_URL:", process.env.NEXTAUTH_URL);
+console.log("DATABASE_URL:", process.env.DATABASE_URL ? "✓ Set" : "✗ Missing");
+console.log("AUTH_SECRET:", process.env.AUTH_SECRET ? "✓ Set (" + process.env.AUTH_SECRET.length + " chars)" : "✗ Missing");
+console.log("====================================\n");
+
 // PORT is required - use PORT from env (set by PM2 or loaded from .env/.env.development)
 if (!process.env.PORT) {
   console.error(

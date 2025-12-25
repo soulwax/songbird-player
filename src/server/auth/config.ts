@@ -104,29 +104,48 @@ export const authConfig = {
   callbacks: {
     // Update user profile data on sign-in to keep Discord avatar fresh
     async signIn({ user, account, profile }) {
-      // Only update for Discord OAuth sign-ins
-      if (account?.provider === "discord" && profile && user.id) {
-        // Update the user's profile picture and name from Discord's latest data
-        // Use global_name (display name) if available, otherwise fall back to username
-        const updates: { image?: string; name?: string } = {};
+      try {
+        console.log("[NextAuth signIn] Callback triggered");
+        console.log("[NextAuth signIn] Provider:", account?.provider);
+        console.log("[NextAuth signIn] User exists:", !!user);
+        console.log("[NextAuth signIn] Profile exists:", !!profile);
 
-        if (profile.image_url) {
-          updates.image = profile.image_url as string;
+        // Only update for Discord OAuth sign-ins
+        if (account?.provider === "discord" && profile && user.id) {
+          console.log("[NextAuth signIn] Updating Discord user profile...");
+
+          // Update the user's profile picture and name from Discord's latest data
+          // Use global_name (display name) if available, otherwise fall back to username
+          const updates: { image?: string; name?: string } = {};
+
+          if (profile.image_url) {
+            updates.image = profile.image_url as string;
+          }
+
+          if (profile.global_name || profile.username) {
+            updates.name = (profile.global_name || profile.username) as string;
+          }
+
+          // Only update if we have something to update
+          if (Object.keys(updates).length > 0) {
+            console.log("[NextAuth signIn] Updates to apply:", updates);
+            await db
+              .update(users)
+              .set(updates)
+              .where(eq(users.id, user.id));
+            console.log("[NextAuth signIn] Profile updated successfully");
+          }
         }
 
-        if (profile.global_name || profile.username) {
-          updates.name = (profile.global_name || profile.username) as string;
-        }
-
-        // Only update if we have something to update
-        if (Object.keys(updates).length > 0) {
-          await db
-            .update(users)
-            .set(updates)
-            .where(eq(users.id, user.id));
-        }
+        console.log("[NextAuth signIn] Callback completed - allowing sign in");
+        return true;
+      } catch (error) {
+        console.error("[NextAuth signIn] ERROR in callback:");
+        console.error(error);
+        // Still allow sign-in even if profile update fails
+        // The user was already created by the adapter
+        return true;
       }
-      return true;
     },
     session: ({ session, user }) => {
       // Ensure proper serialization by converting to plain object
