@@ -35,7 +35,8 @@
     }
   ],
   "scripts": {
-    "prebuild": "npm run db:generate && npm run db:migrate & npm run db:push",
+    "generate:ssl": "node scripts/generate-ssl-cert.js",
+    "prebuild": "npm run generate:ssl && npm run db:generate && npm run db:migrate & npm run db:push",
     "clean": "rm -rf .next node_modules .turbo dist",
     "clean:win": "rmdir /s /q .next && rmdir /s /q node_modules && rmdir /s /q .turbo && rmdir /s /q dist",
     "build:analyzer": "cross-env ANALYZE=true next build",
@@ -45,6 +46,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "predev": "npm run generate:ssl",
     "dev": "cross-env NODE_ENV=development node scripts/server.js",
     "dev:next": "next dev --turbo --port 3222",
     "dev:win": "cross-env NODE_ENV=development node scripts/server.js",
@@ -69,6 +71,7 @@
     "lint:fix": "eslint --fix .",
     "sourcemap": "rollup -c --sourcemap",
     "preview": "next build && next start",
+    "prestart": "npm run generate:ssl",
     "start": "cross-env NODE_ENV=production node scripts/server.js",
     "start:next": "next start --port 3222",
     "start:win": "cross-env NODE_ENV=production node scripts/server.js",
@@ -82,10 +85,10 @@
     "electron:clean": "node -e \"require('fs').rmSync('dist', {recursive: true, force: true})\"",
     "electron:clean:win": "if exist dist rmdir /s /q dist",
     "electron:download-node": "node scripts/download-node.js",
-    "electron:build": "npm run electron:clean && npm run electron:download-node && node scripts/load-env-build.js \"cross-env ELECTRON_BUILD=true next build\" && npm run electron:prepare && electron-builder",
-    "electron:build:win": "npm run electron:clean && npm run electron:download-node && node scripts/load-env-build.js \"cross-env ELECTRON_BUILD=true next build\" && npm run electron:prepare && electron-builder --win",
-    "electron:build:mac": "npm run electron:clean && npm run electron:download-node && node scripts/load-env-build.js \"cross-env ELECTRON_BUILD=true next build\" && npm run electron:prepare && electron-builder --mac",
-    "electron:build:linux": "npm run electron:clean && npm run electron:download-node && node scripts/load-env-build.js \"cross-env ELECTRON_BUILD=true next build\" && npm run electron:prepare && electron-builder --linux"
+    "electron:build": "npm run electron:clean && npm run electron:download-node && node scripts/load-env-build.js \"cross-env ELECTRON_BUILD=true next build\" && npm run electron:prepare && node scripts/load-env-build.js \"electron-builder\"",
+    "electron:build:win": "npm run electron:clean && npm run electron:download-node && node scripts/load-env-build.js \"cross-env ELECTRON_BUILD=true next build\" && npm run electron:prepare && node scripts/load-env-build.js \"electron-builder --win\"",
+    "electron:build:mac": "npm run electron:clean && npm run electron:download-node && node scripts/load-env-build.js \"cross-env ELECTRON_BUILD=true next build\" && npm run electron:prepare && node scripts/load-env-build.js \"electron-builder --mac\"",
+    "electron:build:linux": "npm run electron:clean && npm run electron:download-node && node scripts/load-env-build.js \"cross-env ELECTRON_BUILD=true next build\" && npm run electron:prepare && node scripts/load-env-build.js \"electron-builder --linux\""
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",
@@ -193,11 +196,12 @@
       ],
       "executableName": "Starchild",
       "icon": "public/icon.ico",
-      "signtoolOptions": {
+      "signToolOptions": {
+        "certificateSubjectName": "Starchild",
         "signingHashAlgorithms": [
           "sha256"
         ],
-        "sign": "./electron/sign.js"
+        "rfc3161TimeStampServer": "http://timestamp.digicert.com"
       }
     },
     "mac": {

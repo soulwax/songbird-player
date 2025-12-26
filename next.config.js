@@ -61,18 +61,42 @@ if (typeof process !== "undefined") {
 /** @type {import("next").NextConfig} */
 const config = {
   reactStrictMode: true,
-  output: process.env.ELECTRON_BUILD === "true" ? "standalone" : undefined,
+
+  // Standalone output for both Electron and Vercel (optimized builds)
+  output: "standalone",
   // Electron runs a bundled Next.js server with standalone output
-  // This allows API routes to work in the Electron app
-  
+  // Vercel also benefits from standalone mode for optimized bundle size
+
+  // Production optimizations
+  swcMinify: true, // Use SWC for faster minification
+  poweredByHeader: false, // Remove X-Powered-By header for security
+  compress: true, // Enable gzip compression
+
   // Skip TypeScript type checking during build (types are checked separately)
   typescript: {
     ignoreBuildErrors: true,
   },
-  
+
   // Skip ESLint during build
   eslint: {
     ignoreDuringBuilds: true,
+  },
+
+  // Optimize production builds
+  productionBrowserSourceMaps: false, // Disable source maps in production for smaller bundle
+
+  // Experimental features for better performance
+  experimental: {
+    // Optimize CSS
+    optimizeCss: true,
+    // Optimize package imports
+    optimizePackageImports: [
+      "lucide-react",
+      "framer-motion",
+      "@tanstack/react-query",
+      "@trpc/client",
+      "@trpc/react-query",
+    ],
   },
   images: {
     remotePatterns: [

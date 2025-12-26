@@ -1,0 +1,78 @@
+# Vercel Ignore - Exclude files from deployment to reduce bundle size
+
+# Development
+.vscode
+.idea
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Testing
+coverage
+.nyc_output
+*.spec.ts
+*.test.ts
+**/__tests__
+**/__mocks__
+
+# Electron (not needed for web deployment)
+electron
+dist
+resources
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.snap
+*.exe
+
+# Build artifacts
+.next
+.turbo
+.cache
+
+# Environment files (use Vercel env vars instead)
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# Git
+.git
+.gitignore
+.github
+
+# Documentation (not needed at runtime)
+*.md
+!README.md
+DEPLOYMENT.md
+LICENSE.md
+scripts/README.md
+
+# PM2 (not used on Vercel)
+ecosystem.config.cjs
+logs
+
+# Database
+drizzle.env.js
+drizzle
+
+# Scripts (only needed for dev/build)
+scripts/*.ps1
+scripts/download-node.js
+scripts/create-*.ps1
+scripts/*-version.js
+
+# Certificates (generated from env vars)
+certs
+*.pem
+
+# Windows/Mac
+Thumbs.db
+.DS_Store
+
+# Dependencies source maps (reduce bundle size)
+node_modules/**/*.map

@@ -49,15 +49,25 @@ function getSslConfig() {
 }
 
 const sslConfig = getSslConfig();
+
+// Optimize for Vercel serverless (smaller pool) vs traditional server (larger pool)
+const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV !== undefined;
+
 const pool = new Pool({
   connectionString: env.DATABASE_URL,
   ...(sslConfig && { ssl: sslConfig }),
-  // Connection pool configuration to prevent exhaustion
-  max: 10, // Increased from 5 to handle more concurrent requests
-  idleTimeoutMillis: 60000, // Increased from 30s to 60s to reduce connection churn
+  // Connection pool configuration optimized for environment
+  max: isVercel ? 2 : 10, // Smaller pool for serverless to prevent connection exhaustion
+  min: 0, // Allow pool to scale down to 0 connections when idle
+  idleTimeoutMillis: isVercel ? 10000 : 60000, // Faster cleanup in serverless (10s vs 60s)
   connectionTimeoutMillis: 10000, // Connection timeout
   // Statement timeout to prevent long-running queries from holding connections
   statement_timeout: 30000, // 30 seconds
+  // Enable keep-alive for serverless
+  ...(isVercel && {
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000,
+  }),
 });
 
 // Add error handler for pool errors

@@ -69,8 +69,8 @@ module.exports = async function (configuration) {
 
       const timestampUrl = process.env.WINDOWS_TIMESTAMP_URL || 'http://timestamp.digicert.com';
 
-      // Azure signtool parameters
-      signOptions.signWithParams = `/fd ${hash} /tr ${timestampUrl} /td sha256 /kvu ${azureKeyVaultUri} /kvc ${process.env.AZURE_KEY_VAULT_CERTIFICATE} /kvi ${process.env.AZURE_KEY_VAULT_CLIENT_ID} /kvs ${process.env.AZURE_KEY_VAULT_CLIENT_SECRET} /kvt ${process.env.AZURE_KEY_VAULT_TENANT_ID}`;
+      // Azure signtool parameters (don't include /fd - electron-builder adds it via signingHashAlgorithms)
+      signOptions.signWithParams = `/tr ${timestampUrl} /td sha256 /kvu ${azureKeyVaultUri} /kvc ${process.env.AZURE_KEY_VAULT_CERTIFICATE} /kvi ${process.env.AZURE_KEY_VAULT_CLIENT_ID} /kvs ${process.env.AZURE_KEY_VAULT_CLIENT_SECRET} /kvt ${process.env.AZURE_KEY_VAULT_TENANT_ID}`;
     } else {
       // Local certificate signing
       console.log('   Using local certificate signing');
@@ -78,8 +78,8 @@ module.exports = async function (configuration) {
       const certificatePassword = process.env.WINDOWS_CERTIFICATE_PASSWORD;
       const timestampUrl = process.env.WINDOWS_TIMESTAMP_URL || 'http://timestamp.digicert.com';
 
-      // Build signtool parameters for local certificate
-      signOptions.signWithParams = `/f "${certificateFile}" ${certificatePassword ? `/p "${certificatePassword}"` : ''} /fd ${hash} /tr ${timestampUrl} /td sha256`;
+      // Build signtool parameters for local certificate (don't include /fd - electron-builder adds it via signingHashAlgorithms)
+      signOptions.signWithParams = `/f "${certificateFile}" ${certificatePassword ? `/p "${certificatePassword}"` : ''} /tr ${timestampUrl} /td sha256`;
     }
 
     // Sign the file

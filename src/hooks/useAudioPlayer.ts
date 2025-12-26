@@ -25,14 +25,7 @@ interface UseAudioPlayerOptions {
 }
 
 export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
-  const {
-    onTrackChange,
-    onTrackEnd,
-    onDuplicateTrack,
-    onAutoQueueTrigger,
-    onError,
-    smartQueueSettings,
-  } = options;
+  const { onTrackChange, onTrackEnd, onDuplicateTrack, onError } = options;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // NEW QUEUE-FIRST APPROACH: currentTrack is always queue[0]
   // queue[0] = current track, queue[1..n] = upcoming tracks
@@ -587,6 +580,30 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
     return prevTrack;
   }, [history]);
 
+  // NEW: Validate track data integrity
+  const isValidTrack = useCallback(
+    (track: Track | null | undefined): track is Track => {
+      if (!track) return false;
+
+      // Check essential fields
+      return (
+        typeof track.id === "number" &&
+        track.id > 0 &&
+        typeof track.title === "string" &&
+        track.title.length > 0 &&
+        typeof track.duration === "number" &&
+        track.duration > 0 &&
+        track.artist?.id != null &&
+        typeof track.artist?.name === "string" &&
+        track.artist.name.length > 0 &&
+        track.album?.id != null &&
+        typeof track.album?.title === "string" &&
+        track.album.title.length > 0
+      );
+    },
+    [],
+  );
+
   const addToQueue = useCallback(
     (track: Track | Track[], checkDuplicates = true) => {
       const tracks = Array.isArray(track) ? track : [track];
@@ -598,18 +615,43 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
         tracks: tracks.map((t) => `${t.title} - ${t.artist.name}`),
       });
 
+      // NEW: First, filter out invalid tracks
+      const validTracks = tracks.filter((t): t is Track => {
+        const valid = isValidTrack(t);
+        if (!valid) {
+          console.warn(
+            `[useAudioPlayer] ⚠️ Rejecting invalid track:`,
+            t && typeof t === "object" && "title" in t
+              ? (t as Track).title
+              : "any",
+          );
+        }
+        return valid;
+      });
+
+      if (validTracks.length === 0) {
+        console.warn("[useAudioPlayer] ❌ No valid tracks to add to queue");
+        return;
+      }
+
       if (checkDuplicates) {
         // NEW: Check against entire queue (including queue[0] which is current track)
-        const duplicates = tracks.filter((t) => queue.some((q) => q.id === t.id));
+        const duplicates = validTracks.filter((t) =>
+          queue.some((q) => q.id === t.id),
+        );
 
         if (duplicates.length > 0 && onDuplicateTrack) {
           duplicates.forEach((dup) => onDuplicateTrack?.(dup));
         }
 
-        // Only add non-duplicate tracks
-        const uniqueTracks = tracks.filter((t) => !queue.some((q) => q.id === t.id));
+        // Only add non-duplicate, valid tracks
+        const uniqueTracks = validTracks.filter(
+          (t) => !queue.some((q) => q.id === t.id),
+        );
 
-        console.log("[useAudioPlayer] 🔍 After duplicate check:", {
+        console.log("[useAudioPlayer] 🔍 After validation & duplicate check:", {
+          original: tracks.length,
+          valid: validTracks.length,
           duplicates: duplicates.length,
           uniqueTracks: uniqueTracks.length,
         });
@@ -626,42 +668,67 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
           });
         } else {
           console.log(
-            "[useAudioPlayer] ⚠️ No unique tracks to add (all duplicates)",
+            "[useAudioPlayer] ⚠️ No unique valid tracks to add (filtered out)",
           );
         }
       } else {
         console.log(
-          "[useAudioPlayer] ➕ Adding tracks without duplicate check",
+          "[useAudioPlayer] ➕ Adding valid tracks without duplicate check",
         );
         setQueue((prev) => {
           console.log("[useAudioPlayer] ✅ Queue updated:", {
             previousSize: prev.length,
-            adding: tracks.length,
-            newSize: prev.length + tracks.length,
+            adding: validTracks.length,
+            newSize: prev.length + validTracks.length,
           });
-          return [...prev, ...tracks];
+          return [...prev, ...validTracks];
         });
       }
     },
-    [queue, onDuplicateTrack],
+    [queue, onDuplicateTrack, isValidTrack],
   );
 
-  const addToPlayNext = useCallback((track: Track | Track[]) => {
-    const tracks = Array.isArray(track) ? track : [track];
-    // NEW: Insert at position 1 (right after current track at queue[0])
-    setQueue((prev) => {
-      if (prev.length === 0) {
-        return tracks; // No current track, these become the queue
+  const addToPlayNext = useCallback(
+    (track: Track | Track[]) => {
+      const tracks = Array.isArray(track) ? track : [track];
+
+      // NEW: Validate tracks before adding
+      const validTracks = tracks.filter((t): t is Track => {
+        const valid = isValidTrack(t);
+        if (!valid) {
+          console.warn(
+            `[useAudioPlayer] ⚠️ Rejecting invalid track in addToPlayNext:`,
+            t && typeof t === "object" && "title" in t
+              ? (t as Track).title
+              : "Unknown",
+          );
+        }
+        return valid;
+      });
+
+      if (validTracks.length === 0) {
+        console.warn("[useAudioPlayer] ❌ No valid tracks to add to play next");
+        return;
       }
-      const [current, ...rest] = prev;
-      return [current!, ...tracks, ...rest];
-    });
-  }, []);
+
+      // NEW: Insert at position 1 (right after current track at queue[0])
+      setQueue((prev) => {
+        if (prev.length === 0) {
+          return validTracks; // No current track, these become the queue
+        }
+        const [current, ...rest] = prev;
+        return [current!, ...validTracks, ...rest];
+      });
+    },
+    [isValidTrack],
+  );
 
   const removeFromQueue = useCallback((index: number) => {
     // NEW: Prevent removing queue[0] (current track)
     if (index === 0) {
-      console.warn("[useAudioPlayer] Cannot remove currently playing track (queue[0])");
+      console.warn(
+        "[useAudioPlayer] Cannot remove currently playing track (queue[0])",
+      );
       return;
     }
     setQueue((prev) => prev.filter((_, i) => i !== index));
@@ -675,7 +742,9 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
   const reorderQueue = useCallback((oldIndex: number, newIndex: number) => {
     // NEW: Prevent reordering queue[0] (current track)
     if (oldIndex === 0 || newIndex === 0) {
-      console.warn("[useAudioPlayer] Cannot reorder currently playing track (queue[0])");
+      console.warn(
+        "[useAudioPlayer] Cannot reorder currently playing track (queue[0])",
+      );
       return;
     }
 
@@ -788,7 +857,7 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
 
       if (newShuffleState) {
         // Save original order before shuffling (excluding queue[0])
-        const [current, ...rest] = queue;
+        const [...rest] = queue;
         setOriginalQueueOrder(rest);
         smartShuffle();
       } else {
@@ -864,7 +933,7 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
         });
       }
     }
-  }, [currentTrack?.id]); // Only trigger when track ID changes
+  }, [currentTrack, loadTrack, play]); // Only trigger when track ID changes
 
   // Cleanup retry timeout on unmount
   useEffect(() => {
@@ -883,6 +952,96 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
     failedTracksRef.current.clear();
   }, []);
 
+  // NEW: Remove duplicate tracks from queue
+  const removeDuplicates = useCallback(() => {
+    setQueue((prev) => {
+      if (prev.length <= 1) return prev;
+
+      const seen = new Set<number>();
+      const deduplicated: Track[] = [];
+
+      for (const track of prev) {
+        if (!seen.has(track.id)) {
+          seen.add(track.id);
+          deduplicated.push(track);
+        }
+      }
+
+      const removedCount = prev.length - deduplicated.length;
+      if (removedCount > 0) {
+        console.log(
+          `[useAudioPlayer] 🧹 Removed ${removedCount} duplicate track${removedCount === 1 ? "" : "s"} from queue`,
+        );
+      }
+
+      return deduplicated;
+    });
+  }, []);
+
+  // NEW: Clean invalid tracks from queue
+  const cleanInvalidTracks = useCallback(() => {
+    setQueue((prev) => {
+      const valid = prev.filter((track) => isValidTrack(track));
+      const removedCount = prev.length - valid.length;
+
+      if (removedCount > 0) {
+        console.warn(
+          `[useAudioPlayer] 🧹 Removed ${removedCount} invalid track${removedCount === 1 ? "" : "s"} from queue`,
+        );
+      }
+
+      return valid;
+    });
+  }, [isValidTrack]);
+
+  // NEW: Full queue cleanup (duplicates + invalid tracks)
+  const cleanQueue = useCallback(() => {
+    setQueue((prev) => {
+      if (prev.length === 0) return prev;
+
+      // First, remove invalid tracks
+      const valid = prev.filter((track) => isValidTrack(track));
+
+      // Then, remove duplicates
+      const seen = new Set<number>();
+      const cleaned: Track[] = [];
+
+      for (const track of valid) {
+        if (!seen.has(track.id)) {
+          seen.add(track.id);
+          cleaned.push(track);
+        }
+      }
+
+      const removedInvalid = prev.length - valid.length;
+      const removedDuplicates = valid.length - cleaned.length;
+      const totalRemoved = removedInvalid + removedDuplicates;
+
+      if (totalRemoved > 0) {
+        console.log(
+          `[useAudioPlayer] 🧹 Queue cleaned: removed ${removedInvalid} invalid, ${removedDuplicates} duplicate track${totalRemoved === 1 ? "" : "s"}`,
+        );
+      }
+
+      return cleaned;
+    });
+  }, [isValidTrack]);
+
+  // NEW: Clear entire queue and history (for login/logout)
+  const clearQueueAndHistory = useCallback(() => {
+    console.log(
+      "[useAudioPlayer] 🧹 Clearing queue and history (user session change)",
+    );
+    setQueue([]);
+    setHistory([]);
+    setOriginalQueueOrder([]);
+    setIsPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+  }, []);
+
   // Wrapper for setVolume with validation to prevent crashes
   const setVolumeWithValidation = useCallback((newVolume: number) => {
     // Clamp volume between 0 and 1 to prevent crashes
@@ -896,6 +1055,17 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
   // - If track is in queue: playFromQueue to move it to position 0
   const playTrack = useCallback(
     (track: Track) => {
+      // NEW: Validate track before playing
+      if (!isValidTrack(track)) {
+        console.error(
+          "[useAudioPlayer] ❌ Cannot play invalid track:",
+          typeof track === "object" && track && "title" in track
+            ? (track as Track).title
+            : "Unknown",
+        );
+        return null;
+      }
+
       const trackIndex = queue.findIndex((t) => t.id === track.id);
 
       if (trackIndex === -1) {
@@ -920,7 +1090,7 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
 
       return track;
     },
-    [queue, currentTrack, playFromQueue],
+    [queue, currentTrack, playFromQueue, isValidTrack],
   );
 
   return {
@@ -976,6 +1146,13 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
     skipBackward,
     clearFailedTrack,
     clearAllFailedTracks,
+
+    // NEW: Queue safety functions
+    removeDuplicates,
+    cleanInvalidTracks,
+    cleanQueue,
+    clearQueueAndHistory,
+    isValidTrack,
 
     // Ref
     audioRef,

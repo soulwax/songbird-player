@@ -56,6 +56,13 @@ interface AudioPlayerContextType {
   // Queue Management
   saveQueueAsPlaylist: () => Promise<void>;
 
+  // Queue Safety & Cleanup
+  removeDuplicates: () => void;
+  cleanInvalidTracks: () => void;
+  cleanQueue: () => void;
+  clearQueueAndHistory: () => void;
+  isValidTrack: (track: Track | null | undefined) => track is Track;
+
   // COMMENTED OUT - Smart Queue features disabled for now
   // addSimilarTracks: (trackId: number, count?: number) => Promise<void>;
   // generateSmartMix: (seedTrackIds: number[], count?: number) => Promise<void>;
@@ -71,6 +78,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
   const [showMobilePlayer, setShowMobilePlayer] = useState(false);
   const [hideUI, setHideUI] = useState(false);
+  const [lastUserId, setLastUserId] = useState<string | null>(null);
   const addToHistory = api.music.addToHistory.useMutation();
   const createPlaylistMutation = api.music.createPlaylist.useMutation();
   const addToPlaylistMutation = api.music.addToPlaylist.useMutation();
@@ -206,6 +214,47 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     // COMMENTED OUT - Smart queue settings disabled
     // smartQueueSettings: smartQueueSettings ?? undefined,
   });
+
+  // Watch for session changes (login/logout) and clear queue
+  useEffect(() => {
+    const currentUserId = session?.user?.id ?? null;
+
+    // Only clear on actual user change, not on initial load
+    if (lastUserId !== null && currentUserId !== lastUserId) {
+      console.log(
+        "[AudioPlayerContext] 🔄 User session changed, clearing queue",
+        {
+          from: lastUserId,
+          to: currentUserId,
+        },
+      );
+      player.clearQueueAndHistory();
+      showToast(
+        currentUserId
+          ? "Welcome! Queue has been cleared for your new session."
+          : "Logged out. Queue cleared.",
+        "info",
+      );
+    }
+
+    setLastUserId(currentUserId);
+  }, [session?.user?.id, lastUserId, player, showToast]);
+
+  // Periodically clean queue (remove duplicates and invalid tracks)
+  useEffect(() => {
+    const cleanupInterval = setInterval(
+      () => {
+        if (player.queue.length > 1) {
+          // Only clean if there's actually a queue
+          console.log("[AudioPlayerContext] 🧹 Running periodic queue cleanup");
+          player.cleanQueue();
+        }
+      },
+      5 * 60 * 1000,
+    ); // Every 5 minutes
+
+    return () => clearInterval(cleanupInterval);
+  }, [player]);
 
   const play = useCallback(
     (track: Track) => {
@@ -378,6 +427,13 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
     // Queue Management
     saveQueueAsPlaylist,
+
+    // Queue Safety & Cleanup
+    removeDuplicates: player.removeDuplicates,
+    cleanInvalidTracks: player.cleanInvalidTracks,
+    cleanQueue: player.cleanQueue,
+    clearQueueAndHistory: player.clearQueueAndHistory,
+    isValidTrack: player.isValidTrack,
 
     // COMMENTED OUT - Smart Queue features disabled
     // addSimilarTracks,
