@@ -32,7 +32,8 @@
       "Bash(pm2 stop:*)",
       "Bash(rm:*)",
       "Bash(npm run typecheck:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(node -c:*)"
     ],
     "deny": [],
     "ask": []
