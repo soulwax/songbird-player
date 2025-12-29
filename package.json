@@ -1,6 +1,6 @@
 {
   "name": "songbird-player",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "description": "A modern music streaming and discovery platform with intelligent recommendations, advanced audio features, and a beautiful user interface",
   "private": true,
   "type": "module",
@@ -49,7 +49,7 @@
     "copy:changelog": "cp CHANGELOG.md public/CHANGELOG.md",
     "migrate:neon": "npx tsx scripts/migrate-to-neon.ts",
     "predev": "npm run generate:ssl",
-    "dev": "cross-env NODE_ENV=development node scripts/server.js && npm run copy:changelog",
+    "dev": "cross-env NODE_ENV=development node scripts/server.js",
     "dev:next": "next dev --turbo --port 3222",
     "dev:win": "cross-env NODE_ENV=development node scripts/server.js",
     "pm2:start": "pm2 start ecosystem.config.cjs --only songbird-frontend-prod --env production",

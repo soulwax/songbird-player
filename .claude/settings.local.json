@@ -44,7 +44,7 @@
       "Bash(npm run pm2:start:*)",
       "Bash(pm2 save:*)",
       "Bash(npm run deploy:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:next:*)"
     ],
     "deny": [],
     "ask": []

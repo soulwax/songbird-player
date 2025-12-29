@@ -72,7 +72,7 @@ export function FlowFieldBackground({
     // before or after the audio element starts playing. The chain will be
     // verified again in useAudioPlayer.play() before playback.
     ensureConnectionChain(connection);
-    
+
     console.log("[FlowFieldBackground] Audio connection setup complete", {
       hasAnalyser: !!connection.analyser,
       hasFilters: !!(connection.filters && connection.filters.length > 0),
