@@ -5,7 +5,6 @@ All notable changes to darkfloor.art will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
 ## [0.7.3] - 2025-12-29
 
 ### Added
@@ -28,11 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Open Graph Metadata**: Enhanced social sharing with new default image and call-to-action
   - Default embed now shows Emily the Strange image when no track is specified
-  - Dynamic song embeds display "▶ Listen Now" call-to-action button
-  - "Listen Now" button features gradient styling (orange to teal)
+  - Dynamic song embeds display simple "Play now on darkfloor.art" text
+  - Subtle, elegant design with muted color (#a5afbf)
   - Layout updated: album art (470×470) on left, track info on right
   - Improved positioning and spacing for better visual appeal
-  - Location: `src/app/api/og/route.tsx:16-86, 193-225`
+  - Location: `src/app/api/og/route.tsx:16-86, 205-215`
 
 - **Site Description Updates**: Updated descriptions across all metadata
   - Changed from "smart recommendations" to "advanced audio features and visual patterns"
@@ -59,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical Details
 
 **Fireworks Optimization Implementation:**
+
 ```typescript
 // Object pooling system
 private fireworks: { x, y, vx, vy, hue, life, maxLife, size, dead }[] = [];
@@ -88,6 +88,7 @@ ctx.arc(fw.x, fw.y, fw.size * 3, 0, TAU);    // Outer glow
 ```
 
 **Playlist Button Integration:**
+
 - Uses tRPC `api.music.getPlaylists.useQuery()` for fetching playlists
 - Uses tRPC `api.music.addToPlaylist.useMutation()` for adding tracks
 - Dropdown positioned absolutely (mobile: top-right, desktop: centered)
@@ -95,6 +96,7 @@ ctx.arc(fw.x, fw.y, fw.size * 3, 0, TAU);    // Outer glow
 - Empty state message: "No playlists yet. Create one from your library!"
 
 **Files Modified:**
+
 - Modified: `package.json` (version bump to 0.7.3)
 - Modified: `src/components/visualizers/FlowFieldRenderer.ts` (fireworks optimization)
 - Modified: `src/components/MobilePlayer.tsx` (playlist button)
@@ -143,6 +145,7 @@ ctx.arc(fw.x, fw.y, fw.size * 3, 0, TAU);    // Outer glow
   - Consistent spacing and styling with rest of application
 
 **Files Modified:**
+
 - Added: `src/components/ChangelogModal.tsx` (new changelog modal component)
 - Modified: `src/app/HomePageClient.tsx` (added buttons and modal integration)
 - Added: `public/CHANGELOG.md` (copy of changelog for client-side access)
@@ -190,11 +193,13 @@ ctx.arc(fw.x, fw.y, fw.size * 3, 0, TAU);    // Outer glow
 ### Technical Details
 
 **Queue Structure:**
+
 - Current track is always at `queue[0]`
 - Upcoming tracks are at `queue[1..n]`
 - History tracking works correctly with preserved queue
 
 **Playlist Save Fix:**
+
 ```typescript
 // OLD - Sequential, could have race conditions
 for (const track of tracksToSave) {
@@ -214,6 +219,7 @@ await Promise.all(
 ```
 
 **Queue Preservation Fix:**
+
 ```typescript
 // OLD - DESTROYS the queue! 💀
 setQueue([track]); // 100 carefully selected songs = GONE
@@ -225,11 +231,13 @@ setQueue([track, ...queue.slice(1)]); // Keep queue[1..n], replace queue[0]
 ### User Impact
 
 **Before this fix:**
+
 - Saving a 50-song queue to playlist might only save 2, 4, or 6 songs
 - Playing a new track manually would wipe your entire 100+ song queue
 - Users lost hours of work assembling queues
 
 **After this fix:**
+
 - All tracks in queue are reliably saved to playlists
 - Playing new tracks preserves your carefully assembled queue
 - Queue feels solid and reliable, not fragile and prone to destruction
@@ -491,7 +499,6 @@ setQueue([track, ...queue.slice(1)]); // Keep queue[1..n], replace queue[0]
   - Mobile: 30-60fps, <20% CPU usage, <50MB memory
   - Initial bundle size increase: <100KB for WebGL infrastructure
 
-
 ## [0.6.6] - 2025-12-23
 
 ### Added
@@ -523,7 +530,6 @@ setQueue([track, ...queue.slice(1)]); // Keep queue[1..n], replace queue[0]
 - Modified: `src/app/layout.tsx` (updated default metadata)
 - Added: `public/emily-the-strange.png` (fallback image asset)
 
-
 ## [0.6.5] - 2025-12-23
 
 ### Changed
@@ -541,7 +547,6 @@ setQueue([track, ...queue.slice(1)]); // Keep queue[1..n], replace queue[0]
 - **Performance & Visual Fidelity**: Pre-calculated common constants, angle steps, and hue offsets; reduced per-frame allocations; enhanced gradients and glow layers for deeper, more responsive visuals without extra CPU cost.
 - **Pattern Infrastructure**: Tightened use of cached HSLA color strings, fast modulo for hues, and object pooling in the visualizer pipeline to keep frame times stable even under heavy audio-reactive scenes.
 
-
 ## [0.6.4] - 2025-12-21
 
 ### Changed
@@ -549,12 +554,14 @@ setQueue([track, ...queue.slice(1)]); // Keep queue[1..n], replace queue[0]
 #### Complete Rebrand to darkfloor.art
 
 **User-Facing Changes:**
+
 - **Brand Identity**: Completely rebranded from "isobelnet.de" to "darkfloor.art" across all user interfaces
 - **UI Components**: Updated all component text including headers, menus, welcome messages, and share dialogs
 - **Metadata**: Updated page titles, Open Graph data, and Twitter card metadata for SEO and social sharing
 - **Mobile Experience**: Updated mobile header, hamburger menu branding, and player UI text
 
 **Technical Changes:**
+
 - **Package Configuration**: Renamed package from `isobelnet-de` to `darkfloor-art`
 - **PM2 Processes**: Renamed production and development processes to `darkfloor-art-prod` and `darkfloor-art-dev`
 - **Electron App**: Updated desktop application name, app ID (`com.darkfloor.art`), and product name
@@ -564,6 +571,7 @@ setQueue([track, ...queue.slice(1)]); // Keep queue[1..n], replace queue[0]
 - **Base URL**: Updated default fallback URL to `https://darkfloor.art`
 
 **Files Modified (30+ total):**
+
 - UI Components: HamburgerMenu, Header, WelcomeHero, EnhancedTrackCard, SwipeableTrackCard
 - App Pages: layout, page, license, user profile
 - Configuration: package.json, ecosystem.config.cjs, electron/main.cjs, getBaseUrl.ts

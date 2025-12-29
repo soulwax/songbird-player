@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // File: scripts/generate-ssl-cert.js
-// Generates certs/ca.pem from DB_SSL_CA environment variable
 
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";

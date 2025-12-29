@@ -1,5 +1,3 @@
-// File: src/components/visualizers/FlowFieldRenderer.ts
-
 import type { Pattern } from "./flowfieldPatterns/patternIds";
 import { renderHexGrid } from "./flowfieldPatterns/renderHexGrid";
 import { renderKaleidoscope } from "./flowfieldPatterns/renderKaleidoscope";
@@ -499,9 +497,6 @@ export class FlowFieldRenderer {
     return x;
   }
 
-  // Build a lightweight context object for extracted pattern modules.
-  // This allows us to migrate patterns incrementally into separate files without
-  // exposing FlowFieldRenderer internals as public API.
   private getPatternContext(
     overrides?: Partial<FlowFieldPatternContext>,
   ): FlowFieldPatternContext {
@@ -796,11 +791,6 @@ export class FlowFieldRenderer {
     trebleIntensity: number,
   ): void {
     const ctx = this.ctx;
-
-    // HYPER-OPTIMIZATION: Much cheaper rays (faster “buildup”, fewer allocations)
-    // - Dynamic ray count (LOD) to avoid 7x gradient-layering per ray
-    // - Replace offset+gradient loop with 2-pass glow/core stroke
-    // - Central glow drawn as a circle (not a full-canvas fillRect)
     const twoPi = FlowFieldRenderer.TWO_PI;
     const baseRayCount = this.rayCount;
     const countScale = 0.65 + audioIntensity * 0.55 + bassIntensity * 0.55;
@@ -822,14 +812,11 @@ export class FlowFieldRenderer {
     const minDimension = Math.min(this.width, this.height);
 
     const rayLengthBase = minDimension * (0.55 + audioIntensity * 0.55);
-    const rayWidth = 1.6 + trebleIntensity * 4.5;
-    const glowWidth = rayWidth * (2.1 + audioIntensity * 0.6);
-    const glowBlur = 10 + trebleIntensity * 22 + audioIntensity * 10;
+    const rayWidth = 2.5 + trebleIntensity * 5.5;
     const hueStep = 360 * invRayCount;
+    const alpha = 0.4 + audioIntensity * 0.45;
 
-    // Faster perceived buildup: higher baseline alpha even at low audio
-    const alphaBase = 0.22 + audioIntensity * 0.35;
-    const coreAlpha = 0.35 + audioIntensity * 0.45;
+    const rayData: Array<{ endX: number; endY: number; hue: number }> = [];
 
     for (let i = 0; i < rayCount; i++) {
       const spiralAngle = timeWave1 + i * 0.1;
@@ -841,30 +828,23 @@ export class FlowFieldRenderer {
 
       const endX = this.fastCos(angle) * rayLength;
       const endY = this.fastSin(angle) * rayLength;
-
       const hue = this.fastMod360(this.hueBase + i * hueStep + timeHue);
 
-      // Glow pass
-      ctx.shadowBlur = glowBlur;
-      ctx.shadowColor = this.hsla(hue, 100, 55, alphaBase * 0.9);
-      ctx.strokeStyle = this.hsla(hue, 100, 55, alphaBase * 0.35);
-      ctx.lineWidth = glowWidth;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(endX, endY);
-      ctx.stroke();
+      rayData.push({ endX, endY, hue });
+    }
 
-      // Core pass
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = this.hsla(hue, 95, 72, coreAlpha);
-      ctx.lineWidth = rayWidth;
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = rayWidth;
+
+    for (let i = 0; i < rayCount; i++) {
+      const { endX, endY, hue } = rayData[i]!;
+      ctx.strokeStyle = this.hsla(hue, 95, 65, alpha);
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.lineTo(endX, endY);
       ctx.stroke();
     }
 
-    // Central glow (circle, not full-canvas fill)
     const glowRadius = 90 + bassIntensity * 110;
     const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
     glowGradient.addColorStop(
@@ -1986,7 +1966,6 @@ export class FlowFieldRenderer {
     const ctx = this.ctx;
     const shouldSpawn = bassIntensity > 0.5 && (this.time & 15) === 0;
 
-    // Particle spawning with object pooling
     if (shouldSpawn) {
       let rngSeed = (this.time * 1103515245 + 12345) & 0x7fffffff;
       const rng1 = rngSeed / 0x7fffffff;
@@ -2015,7 +1994,6 @@ export class FlowFieldRenderer {
         rngSeed = (rngSeed * 1103515245 + 12345) & 0x7fffffff;
         const sizeRng = rngSeed / 0x7fffffff;
 
-        // Reuse pooled object or create new one
         let particle = this.fireworksPool.pop();
         particle ??= {
           x: 0,
@@ -2051,12 +2029,10 @@ export class FlowFieldRenderer {
     const friction = 0.98;
     const len = this.fireworks.length;
 
-    // Update and render in single pass - NO splice()
     for (let i = 0; i < len; i++) {
       const fw = this.fireworks[i];
       if (!fw || fw.dead) continue;
 
-      // Update physics
       fw.life++;
       fw.vy += gravity;
       fw.vx *= friction;
@@ -2064,7 +2040,6 @@ export class FlowFieldRenderer {
       fw.x += fw.vx;
       fw.y += fw.vy;
 
-      // Check death
       if (fw.life > fw.maxLife) {
         fw.dead = true;
         this.fireworksActiveCount--;
@@ -2072,38 +2047,20 @@ export class FlowFieldRenderer {
         continue;
       }
 
-      // Optimized rendering - simple arcs instead of gradients
       const invMaxLife = 1 / fw.maxLife;
       const alpha = 1 - fw.life * invMaxLife;
-      const size = fw.size;
-      const size2 = size * 2;
-      const size3 = size * 3;
+      const size = fw.size * 2.2;
 
-      // Draw core (bright)
-      ctx.fillStyle = this.hsla(fw.hue, 100, 80, alpha);
+      ctx.fillStyle = this.hsla(fw.hue, 95, 70, alpha * 0.65);
       ctx.beginPath();
       ctx.arc(fw.x, fw.y, size, 0, FlowFieldRenderer.TWO_PI);
-      ctx.fill();
-
-      // Draw glow (medium)
-      ctx.fillStyle = this.hsla(fw.hue, 90, 70, alpha * 0.4);
-      ctx.beginPath();
-      ctx.arc(fw.x, fw.y, size2, 0, FlowFieldRenderer.TWO_PI);
-      ctx.fill();
-
-      // Draw outer glow (faint)
-      ctx.fillStyle = this.hsla(fw.hue, 80, 60, alpha * 0.15);
-      ctx.beginPath();
-      ctx.arc(fw.x, fw.y, size3, 0, FlowFieldRenderer.TWO_PI);
       ctx.fill();
     }
 
     ctx.restore();
 
-    // Periodic cleanup to remove dead particles from array
     this.fireworksCleanupCounter++;
     if (this.fireworksCleanupCounter > 120) {
-      // Every ~2 seconds at 60fps
       this.fireworksCleanupCounter = 0;
       this.fireworks = this.fireworks.filter((fw) => !fw.dead);
     }
@@ -2403,22 +2360,15 @@ export class FlowFieldRenderer {
   ): void {
     const ctx = this.ctx;
 
-    // HYPER-OPTIMIZATION: Drastically reduce hex count and per-cell work
-    // - Larger hexes on big canvases
-    // - Only draw within central radius
-    // - No per-cell gradients for highlights (solid fills instead)
-    // - Keep the animated hex wave aesthetic
-
-    // Base hex size, scaled lightly with viewport area
     const minDim = Math.min(this.width, this.height);
-    const areaScale = (this.width * this.height) / (1280 * 720); // ~1 at 720p
+    const areaScale = (this.width * this.height) / (1280 * 720);
     const scaleClamp = areaScale < 1 ? 1 : Math.min(areaScale, 2.2);
-    const hexSize = (28 + bassIntensity * 16) * Math.sqrt(scaleClamp); // bigger on large canvases
+    const hexSize = (28 + bassIntensity * 16) * Math.sqrt(scaleClamp);
 
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
 
-    const SQRT3 = 1.7320508075688772; // Math.sqrt(3)
+    const SQRT3 = 1.7320508075688772;
     const hexHeight = hexSize * SQRT3;
     const hexSize1_5 = hexSize * 1.5;
     const hexSize0_75 = hexSize * 0.75;
@@ -2430,7 +2380,6 @@ export class FlowFieldRenderer {
     const distFreq = 0.02;
     const pi3 = Math.PI / 3;
 
-    // Slightly reduced grid extents (fewer rows/cols)
     const maxRows = (this.height * 0.9 * invHexHeight + 2) | 0;
     const maxCols = (this.width * 0.9 * invHexSize1_5 + 2) | 0;
 
@@ -2438,12 +2387,11 @@ export class FlowFieldRenderer {
     const maxRadius = minDim * 0.7;
     const maxRadiusSq = maxRadius * maxRadius;
 
-    // Precompute color/lightness ranges
     const baseLightness = 38;
     const lightnessRange = 42 + audioIntensity * 18;
 
     for (let row = -1; row < maxRows; row++) {
-      const offsetX = (row & 1) * hexSize0_75; // staggered rows
+      const offsetX = (row & 1) * hexSize0_75;
       const y = row * hexHeight;
 
       for (let col = -1; col < maxCols; col++) {
@@ -2453,12 +2401,10 @@ export class FlowFieldRenderer {
         const dy = y - this.centerY;
         const distSq = dx * dx + dy * dy;
 
-        // Only render central disc of hexes
         if (distSq > maxRadiusSq) continue;
 
         const dist = this.fastSqrt(distSq);
 
-        // Animated wave over hex grid
         const wave =
           this.fastSin(dist * distFreq - timeWave + bassPi) * 0.5 + 0.5;
         const hue = this.fastMod360(this.hueBase + dist * 0.28 + wave * 160);
@@ -2488,7 +2434,6 @@ export class FlowFieldRenderer {
         ctx.lineWidth = 1.5 + audioIntensity * 1.8;
         ctx.stroke();
 
-        // Bright inner fill only for the strongest wave crests, no gradient
         if (wave > 0.78) {
           ctx.fillStyle = this.hsla(hue, 88, lightness + 8, (wave - 0.5) * 0.5);
           ctx.fill();
@@ -3724,7 +3669,7 @@ export class FlowFieldRenderer {
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
-      const sqrt3_2 = 0.8660254037844386; // sqrt(3)/2
+      const sqrt3_2 = 0.8660254037844386;
       const sizeHalf = size * 0.5;
       const sizeSqrt3 = size * sqrt3_2;
       ctx.beginPath();
@@ -3791,12 +3736,10 @@ export class FlowFieldRenderer {
   ): void {
     const ctx = this.ctx;
 
-    // HYPER-OPTIMIZATION: Reduce orbits / gradients while keeping orbital feel
     const twoPi = FlowFieldRenderer.TWO_PI;
     const inv12 = 1 / 12;
     const timeRay = this.time * 0.002;
 
-    // Fewer orbits with audio-driven LOD (4–6)
     const baseOrbits = 4;
     const extraOrbits = audioIntensity > 0.7 ? 2 : audioIntensity > 0.4 ? 1 : 0;
     const orbits = baseOrbits + extraOrbits;
@@ -3806,12 +3749,11 @@ export class FlowFieldRenderer {
     for (let orbit = 0; orbit < orbits; orbit++) {
       const progress = orbit / orbits;
       const radius = 80 + orbit * 70;
-      const planetCount = 3 + (orbit >> 1); // small increase per orbit
+      const planetCount = 3 + (orbit >> 1);
       const invPlanetCount = 1 / planetCount;
       const speed = 0.001 / (orbit + 1);
       const timeSpeed = this.time * speed;
 
-      // Simple orbit stroke (no dashes)
       const orbitHue = this.fastMod360(this.hueBase + orbit * 18);
       const orbitAlpha = orbitAlphaBase * (1 - progress * 0.4);
       ctx.strokeStyle = this.hsla(orbitHue, 60, 45, orbitAlpha);
@@ -3820,7 +3762,6 @@ export class FlowFieldRenderer {
       ctx.arc(this.centerX, this.centerY, radius, 0, twoPi);
       ctx.stroke();
 
-      // Planets with cheap glow via shadowBlur instead of big gradients
       for (let i = 0; i < planetCount; i++) {
         const angle = twoPi * i * invPlanetCount + timeSpeed;
         const x = this.centerX + this.fastCos(angle) * radius;
@@ -3838,7 +3779,6 @@ export class FlowFieldRenderer {
         ctx.fill();
         ctx.restore();
 
-        // Simple ring hint for some planets (no ellipses)
         if ((orbit & 1) === 0 && (i & 1) === 0) {
           ctx.strokeStyle = this.hsla(this.fastMod360(hue + 30), 70, 60, 0.35);
           ctx.lineWidth = 1.5;
@@ -3849,7 +3789,6 @@ export class FlowFieldRenderer {
       }
     }
 
-    // Central sun: use radial gradient, but fill just a circle (no big rect)
     const sunSize = 40 + audioIntensity * 30;
     const sunSize2 = sunSize * 2;
     const sunSizeHalf = sunSize * 0.5;
@@ -3874,7 +3813,6 @@ export class FlowFieldRenderer {
     ctx.arc(this.centerX, this.centerY, sunSize2, 0, twoPi);
     ctx.fill();
 
-    // Rays: keep count but keep implementation simple
     const rayAngleStep = twoPi * inv12;
     const rayHue = this.fastMod360(this.hueBase + 50);
     const rayAlpha = 0.45 + bassIntensity * 0.35;
@@ -3906,13 +3844,9 @@ export class FlowFieldRenderer {
   ): void {
     const ctx = this.ctx;
 
-    // HYPER-OPTIMIZATION: Aggressively reduce work while preserving overall portal look
-    // - Fewer rings and segments (LOD based on audio intensity)
-    // - Hoisted translate/save outside loop
-    // - Cheaper particle pass (fewer circles, only on a subset of rings)
     const maxRingsBase = 16;
     const extraRings = audioIntensity > 0.7 ? 4 : audioIntensity > 0.4 ? 2 : 0;
-    const rings = maxRingsBase + extraRings; // 16–20 rings instead of always 20
+    const rings = maxRingsBase + extraRings;
     const invRings = 1 / rings;
 
     const timeRotation = this.time * 0.002;
@@ -3922,17 +3856,15 @@ export class FlowFieldRenderer {
     const twoPi = FlowFieldRenderer.TWO_PI;
     const pi6 = Math.PI * 6;
 
-    // Reduce angular resolution; scale with treble but keep upper bound small
     const baseSegments = 32;
-    const extraSegments = (trebleIntensity * 8) | 0; // 0–8
-    const segments = baseSegments + extraSegments; // 32–40 instead of 60
+    const extraSegments = (trebleIntensity * 8) | 0;
+    const segments = baseSegments + extraSegments;
     const invSegments = 1 / segments;
 
-    // Particles: fewer per ring, and only on sparse rings
-    const baseParticlesPerRing = 4; // was 8
+    const baseParticlesPerRing = 4;
     const invParticles = 1 / baseParticlesPerRing;
 
-    const lineWidth = 3 + trebleIntensity * 2; // slightly thinner
+    const lineWidth = 3 + trebleIntensity * 2;
 
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
@@ -3951,13 +3883,11 @@ export class FlowFieldRenderer {
       ctx.lineWidth = lineWidth;
       ctx.lineCap = "round";
 
-      // Draw wavy ring with fewer segments
       ctx.beginPath();
       for (let j = 0; j <= segments; j++) {
         const segmentProgress = j * invSegments;
         const angle = segmentProgress * twoPi;
 
-        // Keep the same wavy silhouette but evaluate less often
         const r =
           radius * (1 + this.fastSin(segmentProgress * pi6 + timeWave) * 0.1);
         const x = this.fastCos(angle) * r;
@@ -3968,9 +3898,8 @@ export class FlowFieldRenderer {
       }
       ctx.stroke();
 
-      // Sparse audio-reactive particles: every 4th ring only
       if ((i & 3) === 0) {
-        const particleSize = 2.5 + audioIntensity * 3.5; // slightly smaller
+        const particleSize = 2.5 + audioIntensity * 3.5;
         const particleHue = this.fastMod360(hue + 60);
         ctx.fillStyle = this.hsla(particleHue, 90, 70, 0.8);
 
@@ -3990,7 +3919,6 @@ export class FlowFieldRenderer {
 
     ctx.restore();
 
-    // Central void remains as main focal point (single gradient draw)
     const voidSize = 30 + bassIntensity * 20;
     const voidGradient = ctx.createRadialGradient(
       this.centerX,
@@ -5096,7 +5024,7 @@ export class FlowFieldRenderer {
     const timePulse = this.time * 0.005;
     const centerAlpha = 0.7 + audioIntensity * 0.3;
     const ringAlpha = 0.6 + audioIntensity * 0.2;
-    const sqrt3 = 1.7320508075688772; // Math.sqrt(3)
+    const sqrt3 = 1.7320508075688772;
     const inv6 = 1 / 6;
     const outerAngleStep = twoPi * inv6;
 
@@ -7760,10 +7688,9 @@ export class FlowFieldRenderer {
     const ctx = this.ctx;
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
-
     const maxRadius =
       (this.width < this.height ? this.width : this.height) * 0.48;
-    const layers = 28;
+    const layers = 18;
     const invLayers = 1 / layers;
     const t = this.time | 0;
     const bass = (bassIntensity * 15) | 0;
@@ -7774,47 +7701,64 @@ export class FlowFieldRenderer {
     const voidHue270 = this.fastMod360(this.hueBase + 270);
     const voidHue260 = this.fastMod360(this.hueBase + 260);
 
+    const baseShadowBlur = (25 + bass * 0.6) | 0;
+    const baseLineWidth = 3.5;
+
     for (let layer = 0; layer < layers; layer++) {
       const radius = maxRadius * (layer + 1) * invLayers;
-      const segments = (12 + (layer << 1)) | 0;
+      const segments = (12 + layer) | 0;
       const invSegments = 1 / segments;
       const segmentAngleStep = twoPi * invSegments;
       const rotSign = ((layer & 1) << 1) - 1;
-      const rotation = (t * 0.0025 * rotSign * (1 + bassIntensity * 2)) | 0;
+      const rotation = t * 0.0025 * rotSign * (1 + bassIntensity * 2);
+
+      const hue = this.fastMod360(this.hueBase + 270 + (layer << 2));
+      const isOuterLayer = layer === layers - 1;
+      const lineWidth = baseLineWidth + (isOuterLayer ? bass : bass * 0.3);
 
       ctx.save();
       ctx.rotate(rotation);
 
+      ctx.shadowBlur = baseShadowBlur;
+      ctx.shadowColor = this.hsla(hue, 95, 40, 0.7);
+      ctx.lineWidth = lineWidth;
+
+      const avgLightness = (8 + this.fastSin(timeLightness + layer) * 18) | 0;
+      const avgAlpha =
+        0.7 + this.fastSin(timeAlpha) * 0.4 + trebleIntensity * 0.8;
+
+      ctx.strokeStyle = this.hsla(hue, 85, avgLightness, avgAlpha);
+
+      ctx.beginPath();
       for (let i = 0; i < segments; i++) {
         const angle = segmentAngleStep * i;
         const nextAngle = segmentAngleStep * (i + 1);
 
-        const hue = this.fastMod360(this.hueBase + 270 + (layer << 2));
-
-        const lightness =
-          (8 + this.fastSin(timeLightness + layer + i) * 18) | 0;
-        const alpha =
-          0.7 + this.fastSin(timeAlpha + i) * 0.4 + trebleIntensity * 0.8;
-
-        ctx.strokeStyle = this.hsla(hue, 85, lightness, alpha);
-        ctx.lineWidth = 3.5 + (layer === layers - 1 ? bass : bass * 0.3);
-        ctx.shadowBlur = (40 + bass) | 0;
-        ctx.shadowColor = this.hsla(hue, 95, 40, 0.95);
-
-        ctx.beginPath();
+        ctx.moveTo(this.fastCos(angle) * radius, this.fastSin(angle) * radius);
         ctx.arc(0, 0, radius, angle, nextAngle);
-        ctx.stroke();
+      }
+      ctx.stroke();
 
-        if ((i & 2) === 0) {
+      if ((layer & 3) === 0) {
+        ctx.shadowBlur = (10 + bass * 0.3) | 0;
+        const accentSegments = segments >> 2;
+        for (let i = 0; i < accentSegments; i++) {
+          const segmentIndex = i << 2;
+          const angle = segmentAngleStep * segmentIndex;
+          const nextAngle = segmentAngleStep * (segmentIndex + 1);
           const midAngle = (angle + nextAngle) * 0.5;
 
           const shadowX = this.fastCos(midAngle) * radius;
           const shadowY = this.fastSin(midAngle) * radius;
 
-          ctx.fillStyle = this.hsla(hue, 90, 15, alpha * 0.95);
-          ctx.shadowBlur = (15 + bass * 0.5) | 0;
+          const alpha =
+            0.7 +
+            this.fastSin(timeAlpha + segmentIndex) * 0.4 +
+            trebleIntensity * 0.8;
+
+          ctx.fillStyle = this.hsla(hue, 90, 15, alpha * 0.8);
           ctx.beginPath();
-          ctx.arc(shadowX, shadowY, (6 + bass * 0.7) | 0, 0, twoPi);
+          ctx.arc(shadowX, shadowY, (4 + bass * 0.5) | 0, 0, twoPi);
           ctx.fill();
         }
       }
@@ -7835,8 +7779,8 @@ export class FlowFieldRenderer {
     voidCore.addColorStop(1, this.hsla(voidHue260, 90, 18, 0));
 
     ctx.fillStyle = voidCore;
-    ctx.shadowBlur = 50;
-    ctx.shadowColor = this.hsla(voidHue270, 100, 20, 0.8);
+    ctx.shadowBlur = 35;
+    ctx.shadowColor = this.hsla(voidHue270, 100, 20, 0.6);
     ctx.beginPath();
     ctx.arc(0, 0, voidCoreRadius, 0, twoPi);
     ctx.fill();
@@ -7853,16 +7797,7 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
-    // HYPER-OPTIMIZATION (drastic): Quantum Entanglement was extremely expensive due to
-    // - 48 pairs each doing shadowBlur=50 strokes + 2 large arc fills
-    // - per-pair bezier curves + per-pair style state churn
     //
-    // New approach:
-    // - Strong LOD on pair count (also scaled by canvas area)
-    // - Temporal subsampling (render only a subset of pairs per frame)
-    // - Replace cubic bezier with a single quadratic curve
-    // - Remove heavy shadows; keep a small cheap glow
-    // - Render "particles" as small squares (fillRect) instead of arcs
 
     const twoPi = FlowFieldRenderer.TWO_PI;
     const pi = Math.PI;
@@ -7870,35 +7805,31 @@ export class FlowFieldRenderer {
     const minDim = this.width < this.height ? this.width : this.height;
     const maxRadius = minDim * 0.48;
 
-    // LOD based on intensity + canvas area
-    const areaScale = (this.width * this.height) / (1280 * 720); // ~1 at 720p
+    const areaScale = (this.width * this.height) / (1280 * 720);
     const areaPenalty = areaScale > 1 ? Math.min(areaScale, 3.2) : 1;
-    const basePairs = 14; // was 48
-    const extraPairs = (midIntensity * 10) | 0; // 0..10
+    const basePairs = 14;
+    const extraPairs = (midIntensity * 10) | 0;
     const particlePairs = Math.max(
       10,
       ((basePairs + extraPairs) / areaPenalty) | 0,
-    ); // ~10..24
+    );
     const invParticlePairs = 1 / particlePairs;
     const angleStep = twoPi * invParticlePairs;
 
-    // Temporal subsampling (big win): draw 1/stride pairs per frame
     const stride = areaPenalty > 2.0 ? 3 : audioIntensity < 0.55 ? 2 : 1;
     const phase = (t >> 5) % stride;
 
-    // Precompute time factors
     const timeAngle = t * 0.0032;
     const timeAngle2 = t * 0.006;
     const timeRadius = t * 0.008;
     const timeCurl = t * 0.01;
 
-    // Styling (cheap glow only)
     ctx.globalCompositeOperation = "lighter";
     ctx.lineCap = "round";
-    ctx.lineWidth = 1.5 + bassIntensity * 2.2; // was 4+ bass*10
-    ctx.shadowBlur = 10 + midIntensity * 10; // was 50
+    ctx.lineWidth = 1.5 + bassIntensity * 2.2;
+    ctx.shadowBlur = 10 + midIntensity * 10;
 
-    const alpha = 0.35 + midIntensity * 0.35; // was 0.85+ (too bright & expensive with glow)
+    const alpha = 0.35 + midIntensity * 0.35;
 
     for (let i = phase; i < particlePairs; i += stride) {
       const angle1 = angleStep * i + timeAngle;
@@ -7917,7 +7848,6 @@ export class FlowFieldRenderer {
       ctx.shadowColor = this.hsla(hue, 95, 65, 0.35);
       ctx.strokeStyle = this.hsla(hue, 95, 70, alpha);
 
-      // Quadratic curve with a single "curl" control point
       const mx = (x1 + x2) * 0.5;
       const my = (y1 + y2) * 0.5;
       const curl = 22 + midIntensity * 30;
@@ -7929,7 +7859,6 @@ export class FlowFieldRenderer {
       ctx.quadraticCurveTo(cx, cy, x2, y2);
       ctx.stroke();
 
-      // "Particles" as tiny squares (much cheaper than arc)
       const s1 = 2 + ((bassIntensity * 3) | 0);
       const s2 = 2 + ((midIntensity * 3) | 0);
       ctx.fillStyle = this.hsla(hue, 100, 85, 0.55 + alpha * 0.35);
@@ -8127,11 +8056,10 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
-    // Precompute constants (integer optimization where possible)
     const maxRadius =
       (this.width < this.height ? this.width : this.height) * 0.5;
-    const spirals = 12; // Reduced from 14 for performance (14% speedup)
-    const pointsPerSpiral = 320; // Reduced from 450 (29% fewer calculations, still smooth)
+    const spirals = 12;
+    const pointsPerSpiral = 320;
     const invPointsPerSpiral = 1 / pointsPerSpiral;
     const t = this.time | 0;
     const bass = (bassIntensity * 8) | 0;
@@ -8145,48 +8073,40 @@ export class FlowFieldRenderer {
     const spiralAlpha = 0.75 + midIntensity * 0.6;
     const lineWidth = (3.5 + bass) | 0;
 
-    // Precompute radius modulations per spiral (hoist from inner loop)
     const radiusModulations = new Float32Array(spirals);
     for (let s = 0; s < spirals; s++) {
       radiusModulations[s] = 0.8 + this.fastSin(timeRadius + s) * 0.35;
     }
 
-    // Batch render all spirals with minimal context switches
-    ctx.shadowBlur = 45; // Set once for all spirals
+    ctx.shadowBlur = 45;
     ctx.lineWidth = lineWidth;
 
     for (let spiral = 0; spiral < spirals; spiral++) {
       const spiralOffset = spiralAngleStep * spiral;
       const hue = this.fastMod360(this.hueBase + 30 + (spiral << 7));
-      const rotSign = ((spiral & 1) << 1) - 1; // -1 or 1
+      const rotSign = ((spiral & 1) << 1) - 1;
       const radiusMod = radiusModulations[spiral]! * maxRadius;
       const spiralTimeRot = timeRotation * rotSign;
       const chaosOffset = timeChaos + (spiral << 2);
 
-      // Update style only when needed (grouped to reduce state changes)
       ctx.strokeStyle = this.hsla(hue, 100, 60, spiralAlpha);
       ctx.shadowColor = this.hsla(hue, 100, 70, 0.95);
 
       ctx.beginPath();
 
-      // Optimized inner loop - reduced trig calls using cos(θ+π/2) = -sin(θ), sin(θ+π/2) = cos(θ)
       for (let i = 0; i < pointsPerSpiral; i++) {
         const tVal = i * invPointsPerSpiral;
         const angle = tVal * pi12 + spiralOffset + spiralTimeRot;
 
-        // Single trig calculation per iteration instead of 4
         const cosAngle = this.fastCos(angle);
         const sinAngle = this.fastSin(angle);
 
-        // Use trig identity: cos(θ+90°) = -sin(θ), sin(θ+90°) = cos(θ)
-        // This eliminates 2 trig calls per point (50% reduction in trig operations!)
         const cosAngle90 = -sinAngle;
         const sinAngle90 = cosAngle;
 
         const radius = tVal * radiusMod;
         const chaos = this.fastSin(chaosOffset + tVal * 16) * chaosMultiplier;
 
-        // Fused multiply-add operations (compiler can optimize)
         const x = cosAngle * radius + cosAngle90 * chaos;
         const y = sinAngle * radius + sinAngle90 * chaos;
 
@@ -8196,7 +8116,6 @@ export class FlowFieldRenderer {
       ctx.stroke();
     }
 
-    // Core rendering with cached gradient (if hueBase doesn't change frequently)
     const coreRadius = maxRadius * 0.25;
     const coreHue60 = this.fastMod360(this.hueBase + 60);
     const coreHue40 = this.fastMod360(this.hueBase + 40);
@@ -8304,7 +8223,6 @@ export class FlowFieldRenderer {
     const moonHue320 = this.fastMod360(this.hueBase + 320);
     const moonHue10 = this.fastMod360(this.hueBase + 10);
 
-    // ENHANCEMENT: Crimson aura rings around moon (5-7 rings)
     const auraRings = 5 + ((bassIntensity * 2) | 0);
     const auraHue = this.fastMod360(this.hueBase + 345);
     const auraAlpha = 0.15 + midIntensity * 0.15;
@@ -8327,7 +8245,6 @@ export class FlowFieldRenderer {
     ctx.globalAlpha = 1;
     ctx.restore();
 
-    // ENHANCEMENT: Blood droplets orbiting moon (25-40 droplets)
     const dropletCount = 25 + ((midIntensity * 15) | 0);
     const dropletHue = this.fastMod360(this.hueBase + 355);
     const dropletAlpha = 0.4 + audioIntensity * 0.3;
@@ -8404,7 +8321,6 @@ export class FlowFieldRenderer {
     ctx.arc(shadowX, shadowY, shadowRadius15, 0, twoPi);
     ctx.fill();
 
-    // ENHANCEMENT: Lunar craters on moon surface (10-15 craters)
     const craterCount = 10 + ((bassIntensity * 5) | 0);
     const craterHue = this.fastMod360(this.hueBase + 335);
     const craterAlpha = 0.35 + midIntensity * 0.2;
@@ -8425,7 +8341,6 @@ export class FlowFieldRenderer {
       ctx.arc(crX, crY, craterSize, 0, twoPi);
       ctx.fill();
 
-      // Small impact rim
       ctx.strokeStyle = this.hsla(craterHue, 70, 32, craterAlpha * 0.7);
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -8434,7 +8349,6 @@ export class FlowFieldRenderer {
     }
     ctx.restore();
 
-    // ENHANCEMENT: Eclipse wisps circling moon (15-22 wisps)
     const wispCount = 15 + ((audioIntensity * 7) | 0);
     const wispHue = this.fastMod360(this.hueBase + 352);
     const wispAlpha = 0.3 + midIntensity * 0.25;
@@ -8458,7 +8372,7 @@ export class FlowFieldRenderer {
     }
     ctx.restore();
 
-    const rays = 16; // Increased from 12
+    const rays = 16;
     const invRays = 1 / rays;
     const rayAngleStep = twoPi * invRays;
     ctx.strokeStyle = this.hsla(moonHue350, 90, 50, 0.4 + midIntensity * 0.3);
@@ -8480,7 +8394,6 @@ export class FlowFieldRenderer {
       ctx.stroke();
     }
 
-    // ENHANCEMENT: Secondary rays between main rays (bass-reactive)
     if (bassIntensity > 0.25) {
       const secondaryHue = this.fastMod360(this.hueBase + 348);
       const secondaryAlpha = 0.25 + bassIntensity * 0.3;
@@ -8519,7 +8432,7 @@ export class FlowFieldRenderer {
     ctx.translate(this.centerX, this.centerY);
 
     const maxRadius = Math.min(this.width, this.height) * 0.48;
-    const matterParticles = 80 + ((bassIntensity * 40) | 0); // Increased from 60, now 80-120
+    const matterParticles = 80 + ((bassIntensity * 40) | 0);
     const invMatterParticles = 1 / matterParticles;
     const twoPi = FlowFieldRenderer.TWO_PI;
     const particleAngleStep = twoPi * invMatterParticles;
@@ -8534,7 +8447,6 @@ export class FlowFieldRenderer {
     const darkHue230 = this.fastMod360(this.hueBase + 230);
     const darkHue260 = this.fastMod360(this.hueBase + 260);
 
-    // ENHANCEMENT: Void particles deep in the core (35-55 particles)
     const voidCount = 35 + ((trebleIntensity * 20) | 0);
     const voidHue = this.fastMod360(this.hueBase + 245);
     const voidAlpha = 0.2 + audioIntensity * 0.15;
@@ -8577,7 +8489,6 @@ export class FlowFieldRenderer {
       ctx.fill();
     }
 
-    // ENHANCEMENT: Dark energy streams connecting matter (15-25 streams)
     const streamCount = 15 + ((audioIntensity * 10) | 0);
     const streamHue = this.fastMod360(this.hueBase + 235);
     const streamAlpha = 0.15 + trebleIntensity * 0.15;
@@ -8605,10 +8516,8 @@ export class FlowFieldRenderer {
     }
     ctx.restore();
 
-    // ENHANCEMENT: Multi-layered dark core (4 layers)
     const coreRadius = maxRadius * 0.3;
 
-    // Layer 1 - Outer darkness
     const darkCore1 = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius);
     darkCore1.addColorStop(
       0,
@@ -8624,7 +8533,6 @@ export class FlowFieldRenderer {
     ctx.arc(0, 0, coreRadius, 0, twoPi);
     ctx.fill();
 
-    // Layer 2 - Mid void
     const coreRadius2 = coreRadius * 0.65;
     const darkCore2 = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius2);
     darkCore2.addColorStop(0, this.hsla(darkHue260, 25, 3, 0.98));
@@ -8635,7 +8543,6 @@ export class FlowFieldRenderer {
     ctx.arc(0, 0, coreRadius2, 0, twoPi);
     ctx.fill();
 
-    // Layer 3 - Event horizon
     const coreRadius3 = coreRadius * 0.35;
     const darkCore3 = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius3);
     darkCore3.addColorStop(0, this.hsla(darkHue260, 20, 2, 1));
@@ -8646,7 +8553,6 @@ export class FlowFieldRenderer {
     ctx.arc(0, 0, coreRadius3, 0, twoPi);
     ctx.fill();
 
-    // Layer 4 - Singularity
     const singularityRadius = coreRadius3 * (0.3 + bassIntensity * 0.2);
     ctx.fillStyle = this.hsla(darkHue260, 15, 1, 1);
     ctx.shadowBlur = 20 + audioIntensity * 15;
@@ -8655,7 +8561,6 @@ export class FlowFieldRenderer {
     ctx.arc(0, 0, singularityRadius, 0, twoPi);
     ctx.fill();
 
-    // ENHANCEMENT: Increased gravity waves from 8 to 12 + gravitational lensing arcs
     const gravityWaves = 12;
     ctx.strokeStyle = this.hsla(
       darkHue240,
@@ -8676,7 +8581,6 @@ export class FlowFieldRenderer {
 
     ctx.setLineDash([]);
 
-    // ENHANCEMENT: Gravitational lensing arcs (6-10 arcs)
     const lensingCount = 6 + ((bassIntensity * 4) | 0);
     const lensingHue = this.fastMod360(this.hueBase + 242);
     const lensingAlpha = 0.25 + audioIntensity * 0.2;
@@ -8715,7 +8619,7 @@ export class FlowFieldRenderer {
     ctx.translate(this.centerX, this.centerY);
 
     const maxRadius = Math.min(this.width, this.height) * 0.44;
-    const fragments = 9; // Increased from 7
+    const fragments = 9;
     const invFragments = 1 / fragments;
     const twoPi = FlowFieldRenderer.TWO_PI;
     const fragmentAngleStep = twoPi * invFragments;
@@ -8728,7 +8632,6 @@ export class FlowFieldRenderer {
     const soulHue120 = this.fastMod360(this.hueBase + 120);
     const soulHue150 = this.fastMod360(this.hueBase + 150);
 
-    // ENHANCEMENT: Spirit particles connecting fragments (30-50 particles)
     const spiritCount = 30 + ((midIntensity * 20) | 0);
     const spiritHue = this.fastMod360(this.hueBase + 135);
     const spiritAlpha = 0.25 + audioIntensity * 0.2;
@@ -8762,7 +8665,6 @@ export class FlowFieldRenderer {
       const alpha =
         0.5 + this.fastSin(timeAlpha + frag) * 0.2 + midIntensity * 0.3;
 
-      // ENHANCEMENT: Ethereal trail behind fragment
       const trailLength = 5;
       const trailHue = this.fastMod360(hue + 15);
       const trailAlpha = alpha * 0.3;
@@ -8808,7 +8710,6 @@ export class FlowFieldRenderer {
       ctx.arc(x, y, size * 0.7, 0, twoPi);
       ctx.stroke();
 
-      // ENHANCEMENT: Fragment shards orbiting each main fragment (4-6 shards)
       const shardCount = 4 + ((bassIntensity * 2) | 0);
       const shardOrbitRadius = size * 1.3;
       const shardHue = this.fastMod360(hue + 40);
@@ -8838,10 +8739,8 @@ export class FlowFieldRenderer {
       ctx.restore();
     }
 
-    // ENHANCEMENT: Multi-layered soul core (4 layers)
     const coreRadius = maxRadius * 0.2;
 
-    // Layer 1 - Outer aura
     const soulCore1 = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius);
     soulCore1.addColorStop(
       0,
@@ -8857,7 +8756,6 @@ export class FlowFieldRenderer {
     ctx.arc(0, 0, coreRadius, 0, twoPi);
     ctx.fill();
 
-    // Layer 2 - Mid glow
     const coreRadius2 = coreRadius * 0.65;
     const soulCore2 = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius2);
     soulCore2.addColorStop(0, this.hsla(soulHue150, 100, 88, 0.95));
@@ -8868,7 +8766,6 @@ export class FlowFieldRenderer {
     ctx.arc(0, 0, coreRadius2, 0, twoPi);
     ctx.fill();
 
-    // Layer 3 - Inner essence
     const coreRadius3 = coreRadius * 0.35;
     const soulCore3 = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius3);
     soulCore3.addColorStop(0, this.hsla(soulHue150, 100, 95, 1));
@@ -8879,7 +8776,6 @@ export class FlowFieldRenderer {
     ctx.arc(0, 0, coreRadius3, 0, twoPi);
     ctx.fill();
 
-    // Layer 4 - Pulsating heart
     const heartRadius =
       coreRadius3 *
       (0.45 + midIntensity * 0.25 + this.fastSin(this.time * 0.005) * 0.15);
@@ -8907,9 +8803,8 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
-    // HYPER-OPTIMIZATION: Pre-calculate forbidden ritual parameters
     const maxRadius = Math.min(this.width, this.height) * 0.43;
-    const ritualCircles = 7; // Increased from 5
+    const ritualCircles = 7;
     const twoPi = FlowFieldRenderer.TWO_PI;
     const timeRotation = this.time * 0.0005;
     const ritualHue310 = this.fastMod360(this.hueBase + 310);
@@ -8917,7 +8812,6 @@ export class FlowFieldRenderer {
     const ritualHue290 = this.fastMod360(this.hueBase + 290);
     const ritualHue320 = this.fastMod360(this.hueBase + 320);
 
-    // ENHANCEMENT: Floating rune particles in ritual space (40-70 particles)
     const runeCount = 40 + ((bassIntensity * 30) | 0);
     const runeHue = this.fastMod360(this.hueBase + 305);
     const runeAlpha = 0.3 + trebleIntensity * 0.25;
@@ -8964,7 +8858,7 @@ export class FlowFieldRenderer {
       const symbolAlpha = 0.7 + trebleIntensity * 0.2;
       for (let i = 0; i < symbols; i++) {
         const angle = symbolAngleStep * i;
-        // HYPER-OPTIMIZATION: Use fast trig for symbol position
+
         const symbolX = this.fastCos(angle) * radius;
         const symbolY = this.fastSin(angle) * radius;
 
@@ -8987,7 +8881,6 @@ export class FlowFieldRenderer {
 
       ctx.restore();
 
-      // ENHANCEMENT: Pulsating pentagrams between circles
       if (circle > 0 && circle < ritualCircles - 1 && circle % 2 === 1) {
         const pentagramCount = 5;
         const pentagramRadius =
@@ -9007,7 +8900,6 @@ export class FlowFieldRenderer {
           const pY = this.fastSin(pentagramAngle) * pentagramRadius;
           const pentagramSize = 8 + bassIntensity * 5;
 
-          // Draw simple pentagram (5-pointed star)
           ctx.beginPath();
           for (let star = 0; star < 5; star++) {
             const starAngle = this.fastMod360(star * 144);
@@ -9024,8 +8916,6 @@ export class FlowFieldRenderer {
       }
     }
 
-    // 8-direction ritual spikes (cardinal + intercardinal)
-    // Keep it cheap: single style, 8 lines, mild audio-reactive length + glow
     const spikeCount = 8;
     const invSpikeCount = 1 / spikeCount;
     const spikeAngleStep = twoPi * invSpikeCount;
@@ -9059,7 +8949,6 @@ export class FlowFieldRenderer {
       ctx.lineTo(x2, y2);
       ctx.stroke();
 
-      // ENHANCEMENT: Ritual flames at spike tips (bass-reactive)
       if (bassIntensity > 0.3) {
         const flameCount = 3 + ((bassIntensity * 4) | 0);
         const flameHue = this.fastMod360(this.hueBase + 325 + s * 5);
@@ -9084,7 +8973,6 @@ export class FlowFieldRenderer {
     }
     ctx.restore();
 
-    // ENHANCEMENT: Energy wisps circling the ritual (12-18 wisps)
     const wispCount = 12 + ((trebleIntensity * 6) | 0);
     const wispHue = this.fastMod360(this.hueBase + 308);
     const wispAlpha = 0.35 + audioIntensity * 0.25;
@@ -9110,10 +8998,8 @@ export class FlowFieldRenderer {
     }
     ctx.restore();
 
-    // ENHANCEMENT: Multi-layered central core (5 layers)
     const centerRadius = maxRadius * 0.15;
 
-    // Layer 1 - Outer glow
     const ritualCenter1 = ctx.createRadialGradient(0, 0, 0, 0, 0, centerRadius);
     ritualCenter1.addColorStop(
       0,
@@ -9129,7 +9015,6 @@ export class FlowFieldRenderer {
     ctx.arc(0, 0, centerRadius, 0, twoPi);
     ctx.fill();
 
-    // Layer 2 - Mid ring
     const midRadius = centerRadius * 0.7;
     const ritualCenter2 = ctx.createRadialGradient(0, 0, 0, 0, 0, midRadius);
     ritualCenter2.addColorStop(0, this.hsla(ritualHue320, 100, 65, 0.9));
@@ -9140,7 +9025,6 @@ export class FlowFieldRenderer {
     ctx.arc(0, 0, midRadius, 0, twoPi);
     ctx.fill();
 
-    // Layer 3 - Inner core
     const innerRadius = centerRadius * 0.4;
     const ritualCenter3 = ctx.createRadialGradient(0, 0, 0, 0, 0, innerRadius);
     ritualCenter3.addColorStop(0, this.hsla(ritualHue310, 100, 70, 1));
@@ -9151,7 +9035,6 @@ export class FlowFieldRenderer {
     ctx.arc(0, 0, innerRadius, 0, twoPi);
     ctx.fill();
 
-    // Layer 4 - Pulsating bright spot
     const pulseRadius = innerRadius * (0.5 + bassIntensity * 0.3);
     ctx.fillStyle = this.hsla(
       ritualHue320,
@@ -9177,28 +9060,18 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
-    // HYPER-OPTIMIZATION: Twilight Zone was gradient-heavy (many radial/linear gradients).
-    // Lower-fidelity rewrite:
-    // - Fewer zones (LOD)
-    // - Replace per-zone radial gradient ring fills with cheap strokes + light glow
-    // - Fewer particles/sparkles; use fillRect for sparkles (cheaper than arc)
-    // - Remove tear gradients; draw simple tear strokes
-    // - Wisps as simple shadowed circles (no gradients)
-    // - Core reduced to 2 layers
-
     const twoPi = FlowFieldRenderer.TWO_PI;
     const maxRadius = Math.min(this.width, this.height) * 0.46;
 
-    const zonesBase = 6; // was 9
+    const zonesBase = 6;
     const zonesExtra =
       audioIntensity > 0.55 ? 2 : audioIntensity > 0.25 ? 1 : 0;
-    const zones = zonesBase + zonesExtra; // 6–8
+    const zones = zonesBase + zonesExtra;
     const invZones = 1 / zones;
 
     ctx.globalCompositeOperation = "lighter";
 
-    // Rift particles: fewer + cheaper
-    const riftParticles = 24 + ((midIntensity * 18) | 0); // was 60–90
+    const riftParticles = 24 + ((midIntensity * 18) | 0);
     const invRiftParticles = 1 / riftParticles;
     const timeRiftAngle = this.time * 0.002;
     const timeRiftRad = this.time * 0.005;
@@ -9217,11 +9090,10 @@ export class FlowFieldRenderer {
           : this.fastMod360(this.hueBase + 44 + r * 4);
 
       ctx.fillStyle = this.hsla(rHue, 80, 65, rAlpha);
-      // small squares are cheaper than arcs
+
       ctx.fillRect(rx - 1.5, ry - 1.5, 3, 3);
     }
 
-    // Zones: cheap stroke rings + sparse sparkles + occasional tears
     const ringGlow = 16 + midIntensity * 16;
     ctx.shadowBlur = ringGlow;
     for (let zone = 0; zone < zones; zone++) {
@@ -9248,8 +9120,7 @@ export class FlowFieldRenderer {
       ctx.arc(0, 0, midRadius, 0, twoPi);
       ctx.stroke();
 
-      // Sparse sparkles (fillRect)
-      const sparkleCount = 4 + ((bassIntensity * 2) | 0); // was 8+
+      const sparkleCount = 4 + ((bassIntensity * 2) | 0);
       const invSparkle = 1 / sparkleCount;
       const sparkleAngleBase = this.time * 0.008;
       ctx.fillStyle = this.hsla(hue, 90, 70, alpha * 0.9);
@@ -9261,9 +9132,8 @@ export class FlowFieldRenderer {
         ctx.fillRect(sx - 1.2, sy - 1.2, 2.4, 2.4);
       }
 
-      // Tears: fewer + no gradients
       if ((zone & 1) === 0 && audioIntensity > 0.2) {
-        const tearCount = 2; // was 4
+        const tearCount = 2;
         const invTear = 1 / tearCount;
         ctx.strokeStyle = this.hsla(hueB, 85, 62, alpha * 0.9);
         ctx.lineWidth = 1.5 + bassIntensity * 1.2;
@@ -9288,8 +9158,7 @@ export class FlowFieldRenderer {
     }
     ctx.shadowBlur = 0;
 
-    // Wisps: fewer, no gradients
-    const wispCount = 6 + ((midIntensity * 4) | 0); // was 10+
+    const wispCount = 6 + ((midIntensity * 4) | 0);
     const invWisp = 1 / wispCount;
     const timeWisp = this.time * 0.004;
     ctx.shadowBlur = 18 + audioIntensity * 14;
@@ -9313,7 +9182,6 @@ export class FlowFieldRenderer {
     }
     ctx.shadowBlur = 0;
 
-    // Core: 2 layers (was 4 gradients)
     for (let layer = 0; layer < 2; layer++) {
       const coreRadius = maxRadius * (0.22 - layer * 0.06);
       const corePulse =
@@ -9365,34 +9233,22 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
-    // HYPER-OPTIMIZATION: Spectral Echo was very expensive:
-    // - 16 layers * 64 segments = 1024 segment evals per frame + shadows
-    // - per-layer particle gradients + trails + beam gradients
-    // - multiple core gradients
     //
-    // Lower-fidelity rewrite:
-    // - Fewer layers (LOD) + temporal subsampling
-    // - Fewer ring segments
-    // - Particles as simple dots (no gradients, no trails)
-    // - Beams as simple strokes (no gradients) and fewer layers render beams
-    // - Core reduced (fewer gradients; no per-segment gradients)
 
     const twoPi = FlowFieldRenderer.TWO_PI;
     const maxRadius = Math.min(this.width, this.height) * 0.45;
 
-    const baseLayers = 8; // was 16
+    const baseLayers = 8;
     const extraLayers =
       trebleIntensity > 0.6 ? 3 : trebleIntensity > 0.3 ? 2 : 0;
-    const echoLayers = baseLayers + extraLayers; // 8–11
+    const echoLayers = baseLayers + extraLayers;
 
-    // Temporal subsampling (big perf win)
     const stride = audioIntensity < 0.55 ? 2 : 1;
     const phase = ((this.time | 0) >> 5) & (stride - 1);
 
     ctx.globalCompositeOperation = "lighter";
 
-    // Background fragments: fewer + fillRect instead of arc
-    const fragmentCount = 22 + ((trebleIntensity * 18) | 0); // was 50–80
+    const fragmentCount = 22 + ((trebleIntensity * 18) | 0);
     const invFragmentCount = 1 / fragmentCount;
     const timeFrag = this.time * 0.001;
     const timeFragRad = this.time * 0.005;
@@ -9409,10 +9265,9 @@ export class FlowFieldRenderer {
       ctx.fillRect(fx - 1.2, fy - 1.2, 2.4, 2.4);
     }
 
-    // Rings
-    const ringSegmentsBase = 28; // was 64
-    const ringSegmentsExtra = (trebleIntensity * 10) | 0; // up to +10
-    const ringSegments = ringSegmentsBase + ringSegmentsExtra; // 28–38
+    const ringSegmentsBase = 28;
+    const ringSegmentsExtra = (trebleIntensity * 10) | 0;
+    const ringSegments = ringSegmentsBase + ringSegmentsExtra;
     const invRingSegments = 1 / ringSegments;
 
     const timeRing1 = this.time * 0.004;
@@ -9421,7 +9276,7 @@ export class FlowFieldRenderer {
     const timeBaseRadius = this.time * 0.003;
 
     ctx.lineCap = "round";
-    ctx.shadowBlur = 10 + trebleIntensity * 10; // was 15 (fine, keep but low)
+    ctx.shadowBlur = 10 + trebleIntensity * 10;
 
     for (let layer = phase; layer < echoLayers; layer += stride) {
       const delay = layer * 0.12;
@@ -9451,9 +9306,8 @@ export class FlowFieldRenderer {
       ctx.closePath();
       ctx.stroke();
 
-      // Sparse ring particles (no gradients/trails)
       if ((layer & 1) === 0) {
-        const particleSegments = 6; // was 12
+        const particleSegments = 6;
         const invParticleSegments = 1 / particleSegments;
         const timeP = this.time * 0.0006;
         ctx.fillStyle = this.hsla(hue, 90, 80, alpha * 0.65);
@@ -9468,9 +9322,8 @@ export class FlowFieldRenderer {
         }
       }
 
-      // Beams: much fewer and no gradients
       if (layer % 5 === 0 && trebleIntensity > 0.25) {
-        const beamCount = 4; // was 8
+        const beamCount = 4;
         const invBeam = 1 / beamCount;
         const timeBeam = this.time * 0.002;
         ctx.shadowBlur = 8 + trebleIntensity * 8;
@@ -9497,8 +9350,7 @@ export class FlowFieldRenderer {
 
     ctx.shadowBlur = 0;
 
-    // Echo source(s): fewer
-    const sources = audioIntensity > 0.55 ? 2 : 1; // was 3
+    const sources = audioIntensity > 0.55 ? 2 : 1;
     for (let source = 0; source < sources; source++) {
       const sourceRadius = maxRadius * (0.2 - source * 0.055);
       const sourcePulse =
@@ -9540,8 +9392,7 @@ export class FlowFieldRenderer {
       ctx.fill();
     }
 
-    // Core spokes: no gradients
-    const coreSegments = 5; // was 6
+    const coreSegments = 5;
     const invCoreSegments = 1 / coreSegments;
     const segRadius = maxRadius * 0.15;
     const segLength = maxRadius * 0.08;
@@ -9581,12 +9432,10 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
-    // HYPER-OPTIMIZATION: Lower-fidelity void whisper (significantly fewer gradients/particles)
     const twoPi = FlowFieldRenderer.TWO_PI;
     const maxRadius = Math.min(this.width, this.height) * 0.44;
 
-    // 1) Background particles: fewer and cheaper
-    const voidParticles = 18 + ((midIntensity * 16) | 0); // was 40–70
+    const voidParticles = 18 + ((midIntensity * 16) | 0);
     const invVoidParticles = 1 / voidParticles;
     const timeParticleAngle = this.time * 0.0015;
     const timeParticleRad = this.time * 0.004;
@@ -9607,8 +9456,7 @@ export class FlowFieldRenderer {
       ctx.fill();
     }
 
-    // 2) Wisps: fewer; no per-wisp gradients or trails
-    const wispCount = 6 + ((bassIntensity * 2) | 0); // was 10–14
+    const wispCount = 6 + ((bassIntensity * 2) | 0);
     const invWispCount = 1 / wispCount;
     const timeWisp = this.time * 0.003;
     const wispHue = this.fastMod360(this.hueBase + 262);
@@ -9631,13 +9479,12 @@ export class FlowFieldRenderer {
     }
     ctx.shadowBlur = 0;
 
-    // 3) Tendrils: fewer tendrils, single layer, single curve, no gradients
-    const whispersBase = 8; // was 14
-    const whispersExtra = (audioIntensity * 2) | 0; // 0–2
-    const whispers = whispersBase + whispersExtra; // 8–10
+    const whispersBase = 8;
+    const whispersExtra = (audioIntensity * 2) | 0;
+    const whispers = whispersBase + whispersExtra;
     const invWhispers = 1 / whispers;
     const angleStep = twoPi * invWhispers;
-    const skip = audioIntensity < 0.45 ? 2 : 1; // draw half at low intensity
+    const skip = audioIntensity < 0.45 ? 2 : 1;
 
     const timeWhisper = this.time * 0.00045;
     const timeCurl = this.time * 0.006;
@@ -9663,7 +9510,6 @@ export class FlowFieldRenderer {
       const x2 = this.fastCos(a) * outer;
       const y2 = this.fastSin(a) * outer;
 
-      // single control point “curl”
       const curl = (0.22 + this.fastSin(timeCurl + whisper) * 0.12) * r;
       const perp = a + Math.PI * 0.5;
       const cx = (x1 + x2) * 0.5 + this.fastCos(perp) * curl;
@@ -9675,7 +9521,6 @@ export class FlowFieldRenderer {
       ctx.quadraticCurveTo(cx, cy, x2, y2);
       ctx.stroke();
 
-      // small terminus spark (1)
       if ((whisper & 1) === 0) {
         ctx.fillStyle = this.hsla(
           this.fastMod360(hue + 8),
@@ -9690,7 +9535,6 @@ export class FlowFieldRenderer {
     }
     ctx.shadowBlur = 0;
 
-    // 4) Core: single gradient (was 6 layers)
     const coreRadius = maxRadius * (0.26 + audioIntensity * 0.04);
     const voidCenter = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius);
     voidCenter.addColorStop(
@@ -9733,14 +9577,6 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
-    // HYPER-OPTIMIZATION: Demonic Gate had several nested gradient loops (tendrils, sigils)
-    // and lots of particles/entities. This rewrite keeps the gate silhouette but reduces:
-    // - particle count
-    // - entity count + vertices
-    // - tendrils and removes tendril gradients
-    // - sigil count and simplifies sigil drawing
-    // - core layers
-
     const twoPi = FlowFieldRenderer.TWO_PI;
     const pi = Math.PI;
     const halfPi = Math.PI * 0.5;
@@ -9753,10 +9589,9 @@ export class FlowFieldRenderer {
 
     ctx.globalCompositeOperation = "lighter";
 
-    // Vortex: fewer + temporal subsampling, smaller glow
     const baseVortex = 20;
     const extraVortex = (bassIntensity * 14) | 0;
-    const vortexParticles = baseVortex + extraVortex; // 20–34 (was 50–80)
+    const vortexParticles = baseVortex + extraVortex;
     const stride = bassIntensity > 0.55 ? 2 : 1;
     const phase = ((this.time | 0) >> 4) & (stride - 1);
     const invVortex = 1 / vortexParticles;
@@ -9772,13 +9607,12 @@ export class FlowFieldRenderer {
       const vHue = this.fastMod360(this.hueBase + vProgress * 26);
       ctx.shadowColor = this.hsla(vHue, 100, 60, vAlpha * 0.35);
       ctx.fillStyle = this.hsla(vHue, 100, 58, vAlpha);
-      // small squares instead of arcs
+
       const s = 2 + (1 - vProgress) * 2;
       ctx.fillRect(vx - s, vy - s, s + s, s + s);
     }
     ctx.shadowBlur = 0;
 
-    // Pillars (2 gradients per frame is fine)
     for (let side = 0; side < 2; side++) {
       const pillarX = (side === 0 ? -1 : 1) * (halfGateWidth + 20);
       const pillarWidth = 16;
@@ -9809,8 +9643,7 @@ export class FlowFieldRenderer {
         gateHeight,
       );
 
-      // Runes: fewer (4), no per-rune beginPath churn beyond the shape
-      const runeCount = 4; // was 6
+      const runeCount = 4;
       const invRuneCount = 1 / runeCount;
       const runeHue = this.fastMod360(this.hueBase + 15);
       for (let r = 0; r < runeCount; r++) {
@@ -9839,10 +9672,9 @@ export class FlowFieldRenderer {
       }
     }
 
-    // Gate silhouette (reduced shadowBlur)
     const gateHue = this.fastMod360(this.hueBase);
     ctx.fillStyle = this.hsla(gateHue, 100, 35, 0.75 + audioIntensity * 0.25);
-    ctx.shadowBlur = 18 + audioIntensity * 16; // was 40
+    ctx.shadowBlur = 18 + audioIntensity * 16;
     ctx.shadowColor = this.hsla(gateHue, 100, 40, 0.75);
     ctx.beginPath();
     ctx.moveTo(-halfGateWidth, halfGateHeight);
@@ -9860,7 +9692,7 @@ export class FlowFieldRenderer {
     ctx.shadowBlur = 0;
 
     ctx.strokeStyle = this.hsla(gateHue, 100, 50, 0.75 + trebleIntensity * 0.2);
-    ctx.lineWidth = 3 + bassIntensity * 2.2; // slightly thinner
+    ctx.lineWidth = 3 + bassIntensity * 2.2;
     ctx.beginPath();
     ctx.moveTo(-halfGateWidth, halfGateHeight);
     ctx.lineTo(-halfGateWidth, -halfGateHeight * 0.3);
@@ -9874,10 +9706,9 @@ export class FlowFieldRenderer {
     ctx.lineTo(halfGateWidth, halfGateHeight);
     ctx.stroke();
 
-    // Entities: fewer + fewer vertices; eyes are fillRect (cheap)
-    const baseEntities = 5; // was 8+
-    const extraEntities = (bassIntensity * 2) | 0; // 0..2
-    const entityCount = baseEntities + extraEntities; // 5–7
+    const baseEntities = 5;
+    const extraEntities = (bassIntensity * 2) | 0;
+    const entityCount = baseEntities + extraEntities;
     const invEntities = 1 / entityCount;
     const timeEntity = this.time * 0.002;
     const entityHue = this.fastMod360(this.hueBase + 10);
@@ -9898,7 +9729,7 @@ export class FlowFieldRenderer {
 
       ctx.fillStyle = this.hsla(entityHue, 95, 45, eAlpha);
       ctx.beginPath();
-      const entityVertices = 5; // was 6
+      const entityVertices = 5;
       for (let v = 0; v <= entityVertices; v++) {
         const vAngle = (twoPi * v) / entityVertices + this.time * 0.005;
         const distortion =
@@ -9928,8 +9759,7 @@ export class FlowFieldRenderer {
       );
     }
 
-    // Tendrils: fewer and no gradients
-    const tendrilCount = 8; // was 16
+    const tendrilCount = 8;
     const invTendrilHalf = 1 / (tendrilCount >> 1);
     const tendrilHue = this.fastMod360(this.hueBase + 8);
     ctx.strokeStyle = this.hsla(
@@ -9961,8 +9791,7 @@ export class FlowFieldRenderer {
     }
     ctx.shadowBlur = 0;
 
-    // Sigils: fewer and simpler (no extra inner arc)
-    const sigilCount = 4; // was 7
+    const sigilCount = 4;
     const sigilArcRadius = gateWidth * 0.62;
     const invSigils = 1 / (sigilCount - 1);
     for (let s = 0; s < sigilCount; s++) {
@@ -9989,7 +9818,6 @@ export class FlowFieldRenderer {
       );
       ctx.lineWidth = 1.5;
 
-      // simple 5-point star polygon
       const pts = 5;
       ctx.beginPath();
       for (let p = 0; p <= pts; p++) {
@@ -10005,7 +9833,6 @@ export class FlowFieldRenderer {
       ctx.restore();
     }
 
-    // Core: fewer layers
     for (let layer = 0; layer < 3; layer++) {
       const coreRadius = maxRadius * (0.19 - layer * 0.05);
       const corePulse =
@@ -10063,7 +9890,6 @@ export class FlowFieldRenderer {
     const invRuneCount = 1 / runeCount;
     const angleStep = FlowFieldRenderer.TWO_PI * invRuneCount;
 
-    // Outer linking network (kept light, no per-link gradients)
     ctx.strokeStyle = this.hsla(
       this.fastMod360(this.hueBase + 295),
       85,
@@ -10093,7 +9919,6 @@ export class FlowFieldRenderer {
       ctx.stroke();
     }
 
-    // Floating cursed fragments
     const fragmentCount = 24 + ((midIntensity * 18) | 0);
     for (let f = 0; f < fragmentCount; f++) {
       const fragmentAngle =
@@ -10113,7 +9938,6 @@ export class FlowFieldRenderer {
       ctx.fill();
     }
 
-    // Distinct rune glyphs: 8 archetypal arcane symbols, all simple paths
     for (let i = 0; i < runeCount; i++) {
       const angle = angleStep * i + this.time * 0.0005;
       const radius =
@@ -10127,7 +9951,6 @@ export class FlowFieldRenderer {
       const alpha =
         0.6 + this.fastSin(this.time * 0.004 + i) * 0.2 + midIntensity * 0.2;
 
-      // Aura
       const auraRadius =
         size *
         (1.7 + this.fastSin(this.time * 0.006 + i) * 0.4 + bassIntensity * 0.6);
@@ -10148,7 +9971,6 @@ export class FlowFieldRenderer {
       ctx.arc(x, y, auraRadius, 0, FlowFieldRenderer.TWO_PI);
       ctx.fill();
 
-      // Small sparks around rune
       const sparkCount = 5;
       const sparkAngleStep = FlowFieldRenderer.TWO_PI / sparkCount;
       for (let s = 0; s < sparkCount; s++) {
@@ -10169,7 +9991,6 @@ export class FlowFieldRenderer {
         ctx.fill();
       }
 
-      // Glyph itself: 8 clearly distinct rune archetypes
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(angle + this.time * 0.001);
@@ -10182,7 +10003,6 @@ export class FlowFieldRenderer {
 
       const runeType = i % 8;
       if (runeType === 0) {
-        // Triad sigil (triangle with inner mark)
         ctx.beginPath();
         ctx.moveTo(0, -size);
         ctx.lineTo(-size * 0.5, size * 0.7);
@@ -10198,7 +10018,6 @@ export class FlowFieldRenderer {
         ctx.closePath();
         ctx.stroke();
       } else if (runeType === 1) {
-        // Key rune
         ctx.beginPath();
         ctx.moveTo(0, -size);
         ctx.lineTo(0, size * 0.7);
@@ -10212,7 +10031,6 @@ export class FlowFieldRenderer {
         ctx.arc(0, -size * 0.7, size * 0.25, 0, FlowFieldRenderer.TWO_PI);
         ctx.stroke();
       } else if (runeType === 2) {
-        // Crossed diamond rune
         ctx.beginPath();
         ctx.moveTo(0, -size);
         ctx.lineTo(-size * 0.6, 0);
@@ -10229,7 +10047,6 @@ export class FlowFieldRenderer {
         ctx.lineTo(size * 0.3, 0);
         ctx.stroke();
       } else if (runeType === 3) {
-        // Bounded square rune
         ctx.beginPath();
         ctx.moveTo(-size * 0.5, -size * 0.8);
         ctx.lineTo(size * 0.5, -size * 0.8);
@@ -10246,7 +10063,6 @@ export class FlowFieldRenderer {
         ctx.lineTo(-size * 0.5, size * 0.8);
         ctx.stroke();
       } else if (runeType === 4) {
-        // Hex gate rune
         const hexPoints = 6;
         ctx.beginPath();
         for (let h = 0; h <= hexPoints; h++) {
@@ -10269,7 +10085,6 @@ export class FlowFieldRenderer {
           ctx.stroke();
         }
       } else if (runeType === 5) {
-        // Starburst rune
         const starPoints = 7;
         ctx.beginPath();
         for (let sp = 0; sp <= starPoints * 2; sp++) {
@@ -10284,7 +10099,6 @@ export class FlowFieldRenderer {
         ctx.fill();
         ctx.stroke();
       } else if (runeType === 6) {
-        // Spiral curse rune
         ctx.beginPath();
         const spiralSegments = 18;
         for (let seg = 0; seg <= spiralSegments; seg++) {
@@ -10302,7 +10116,6 @@ export class FlowFieldRenderer {
         ctx.arc(0, 0, size * 0.8, 0, FlowFieldRenderer.TWO_PI);
         ctx.stroke();
       } else {
-        // Inverted pentagram rune
         const pentaPoints = 5;
         ctx.beginPath();
         for (let p = 0; p <= pentaPoints; p++) {
@@ -10321,7 +10134,6 @@ export class FlowFieldRenderer {
       ctx.restore();
     }
 
-    // Central cursed core
     for (let layer = 0; layer < 4; layer++) {
       const layerRadius = maxRadius * (0.22 - layer * 0.04);
       const layerPulse =
@@ -10370,29 +10182,18 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
-    // HYPER-OPTIMIZATION: ShadowDance was extremely gradient-heavy:
-    // - per-dancer multi-step trail radial gradients
-    // - per-dancer wisp linear gradients
-    // Lower-fidelity rewrite:
-    // - Fewer dancers (LOD)
-    // - Trails are just a couple of shadowed circles (no gradients)
-    // - Wisps are simple strokes (no gradients)
-    // - Fewer vertices per dancer
-    // - Center reduced to 1 gradient layer
-
     const twoPi = FlowFieldRenderer.TWO_PI;
     const halfPi = Math.PI * 0.5;
     const maxRadius = Math.min(this.width, this.height) * 0.46;
 
-    const dancersBase = 8; // was 12
+    const dancersBase = 8;
     const dancersExtra = audioIntensity > 0.55 ? 2 : 0;
-    const dancers = dancersBase + dancersExtra; // 8–10
+    const dancers = dancersBase + dancersExtra;
     const invDancers = 1 / dancers;
     const angleStep = twoPi * invDancers;
 
     ctx.globalCompositeOperation = "lighter";
 
-    // Network ribbons (cheap)
     const netHue = this.fastMod360(this.hueBase + 260);
     ctx.strokeStyle = this.hsla(netHue, 65, 20, 0.12 + bassIntensity * 0.12);
     ctx.lineWidth = 1.2 + bassIntensity * 1.6;
@@ -10432,10 +10233,9 @@ export class FlowFieldRenderer {
 
     ctx.shadowBlur = 0;
 
-    // Dancers
-    const vertices = 8; // was 10
+    const vertices = 8;
     const invVertices = 1 / vertices;
-    const trailSteps = 2; // was 4..0 with gradients
+    const trailSteps = 2;
 
     for (let dancer = 0; dancer < dancers; dancer++) {
       const baseAngle = angleStep * dancer;
@@ -10454,7 +10254,6 @@ export class FlowFieldRenderer {
         trebleIntensity * 0.28 +
         this.fastSin(this.time * 0.004 + dancer) * 0.12;
 
-      // Cheap trail: 2 shadowed circles
       ctx.shadowBlur = 16 + bassIntensity * 10;
       ctx.shadowColor = this.hsla(hue, 80, 25, 0.45);
       for (let t = 1; t <= trailSteps; t++) {
@@ -10481,7 +10280,6 @@ export class FlowFieldRenderer {
       }
       ctx.shadowBlur = 0;
 
-      // Body
       ctx.fillStyle = this.hsla(hue, 70, 30, alpha);
       ctx.shadowBlur = 18 + bassIntensity * 10;
       ctx.shadowColor = this.hsla(hue, 80, 25, 0.55);
@@ -10501,15 +10299,13 @@ export class FlowFieldRenderer {
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      // Orbit ring
       ctx.strokeStyle = this.hsla(hue, 80, 40, alpha * 0.7);
       ctx.lineWidth = 1.5 + bassIntensity * 1.2;
       ctx.beginPath();
       ctx.arc(x, y, size * 0.55, 0, twoPi);
       ctx.stroke();
 
-      // Wisps: fewer and no gradients
-      const wispCount = 3 + ((bassIntensity * 2) | 0); // was 6+
+      const wispCount = 3 + ((bassIntensity * 2) | 0);
       const invWisp = 1 / wispCount;
       const timeW = this.time * 0.01;
       ctx.shadowBlur = 10;
@@ -10530,7 +10326,6 @@ export class FlowFieldRenderer {
       ctx.shadowBlur = 0;
     }
 
-    // Center: 1 gradient (was 3)
     const centerRadius = maxRadius * (0.2 + audioIntensity * 0.05);
     const centerHue = this.fastMod360(this.hueBase + 255);
     const danceCenter = ctx.createRadialGradient(0, 0, 0, 0, 0, centerRadius);
@@ -10573,28 +10368,23 @@ export class FlowFieldRenderer {
     const maxRadius = Math.min(this.width, this.height) * 0.5;
     const twoPi = FlowFieldRenderer.TWO_PI;
 
-    // HYPER-OPTIMIZATION: Reduce entity/particle load aggressively
-    // - Fewer tentacles + segments
-    // - Fewer orbiting nightmares (LOD with intensity)
-    // - Fewer spikes per nightmare
-    // - Remove Math.random() calls (deterministic jitter)
     const nightmaresBase = 8;
     const nightmaresExtra =
       audioIntensity > 0.7 ? 3 : audioIntensity > 0.4 ? 2 : 1;
-    const nightmares = nightmaresBase + nightmaresExtra; // 9–11 instead of 14
+    const nightmares = nightmaresBase + nightmaresExtra;
     const angleStep = twoPi / nightmares;
 
     ctx.globalCompositeOperation = "lighter";
     const tentacleBase = 10;
-    const tentacleExtra = (bassIntensity * 3) | 0; // 0–3
-    const tentacleCount = tentacleBase + tentacleExtra; // 10–13 instead of 16
+    const tentacleExtra = (bassIntensity * 3) | 0;
+    const tentacleCount = tentacleBase + tentacleExtra;
     const tentacleAngleStep = twoPi / tentacleCount;
 
     for (let i = 0; i < tentacleCount; i++) {
       const baseAngle = tentacleAngleStep * i;
       const tentacleLength =
         maxRadius * (0.7 + this.fastSin(this.time * 0.004 + i) * 0.2);
-      const segments = 8 + ((audioIntensity * 3) | 0); // 8–11 instead of 12
+      const segments = 8 + ((audioIntensity * 3) | 0);
       const invSegments = 1 / segments;
       const segmentLength = tentacleLength * invSegments;
 
@@ -10646,9 +10436,8 @@ export class FlowFieldRenderer {
       const angle = angleStep * i + timeAngle;
       const orbitRadius = maxRadius * (0.25 + (i % 4) * 0.12);
 
-      // Deterministic “glitch” jitter (no Math.random)
       rng = (rng * 1664525 + 1013904223) | 0;
-      const r1 = ((rng >>> 8) & 0xffff) / 0xffff; // 0..1
+      const r1 = ((rng >>> 8) & 0xffff) / 0xffff;
       rng = (rng * 1664525 + 1013904223) | 0;
       const r2 = ((rng >>> 8) & 0xffff) / 0xffff;
       const glitchX = (r1 - 0.5) * 5 * bassIntensity;
@@ -10663,7 +10452,7 @@ export class FlowFieldRenderer {
       const pulseAlpha =
         0.6 + this.fastSin(this.time * 0.004 + i) * 0.3 + audioIntensity * 0.3;
 
-      const morphVertices = 7; // slightly cheaper, still “eldritch”
+      const morphVertices = 7;
       const morphAngleStep = twoPi / morphVertices;
 
       ctx.beginPath();
@@ -10699,7 +10488,7 @@ export class FlowFieldRenderer {
       ctx.shadowColor = this.hsla(hue, 100, 45, 0.9);
       ctx.fill();
 
-      const spikes = 6 + ((bassIntensity * 2) | 0); // 6–8 instead of 8–12
+      const spikes = 6 + ((bassIntensity * 2) | 0);
       const spikeAngleStep = twoPi / spikes;
 
       ctx.strokeStyle = this.hsla(hue, 100, 60, pulseAlpha * 0.9);
@@ -10899,13 +10688,11 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
-    // HYPER-OPTIMIZATION: Fewer wisps/waves, simpler geometry, spectral “radar” feel
     const maxRadius = Math.min(this.width, this.height) * 0.48;
 
-    // Wisps: 8–10 instead of 12, linear beams only
     ctx.globalCompositeOperation = "lighter";
     const baseWispCount = 8;
-    const extraWisps = (midIntensity * 2) | 0; // 0–2
+    const extraWisps = (midIntensity * 2) | 0;
     const wispCount = baseWispCount + extraWisps;
     const wispAngleStep = FlowFieldRenderer.TWO_PI / wispCount;
     const timeWispAngle = this.time * 0.002;
@@ -10940,9 +10727,8 @@ export class FlowFieldRenderer {
 
     ctx.globalCompositeOperation = "source-over";
 
-    // Pulses: 6–8 waves instead of 10, fewer satellite particles
     const basePulseWaves = 6;
-    const extraPulseWaves = (audioIntensity * 2) | 0; // 0–2
+    const extraPulseWaves = (audioIntensity * 2) | 0;
     const pulseWaves = basePulseWaves + extraPulseWaves;
 
     const timePulse = this.time * 0.004;
@@ -10965,7 +10751,6 @@ export class FlowFieldRenderer {
       ctx.arc(0, 0, radius, 0, twoPi);
       ctx.stroke();
 
-      // Sparse spectral nodes on every other wave
       if ((wave & 1) === 0) {
         const segments = 6;
         const segmentAngleStep = twoPi / segments;
@@ -10985,7 +10770,6 @@ export class FlowFieldRenderer {
       }
     }
 
-    // Core: spectral heart, same idea but single gradient
     const coreRadius = maxRadius * (0.25 + bassIntensity * 0.08);
     const phantomCore = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius);
     phantomCore.addColorStop(
@@ -11021,19 +10805,14 @@ export class FlowFieldRenderer {
     ctx.save();
     ctx.translate(this.centerX, this.centerY);
 
-    // HYPER-OPTIMIZATION: Drastically reduce work while preserving infernal flame look
     const maxRadius = Math.min(this.width, this.height) * 0.52;
 
-    // Fewer flames & layers depending on intensity
-    const baseFlames = 14; // was 20
-    const extraFlames = audioIntensity > 0.7 ? 4 : audioIntensity > 0.4 ? 2 : 0;
-    const flames = baseFlames + extraFlames; // 14–18
+    const baseFlames = 10;
+    const extraFlames = audioIntensity > 0.7 ? 3 : audioIntensity > 0.5 ? 2 : 0;
+    const flames = baseFlames + extraFlames;
     const angleStep = FlowFieldRenderer.TWO_PI / flames;
 
-    // Fewer sample points along each flame
-    const baseFlamePoints = 10; // was 16
-    const extraFlamePoints = (trebleIntensity * 4) | 0; // up to +4
-    const flamePoints = baseFlamePoints + extraFlamePoints; // 10–14
+    const flamePoints = 8;
     const invFlamePoints = 1 / flamePoints;
 
     const timeFlameAngle = this.time * 0.0015;
@@ -11046,10 +10825,14 @@ export class FlowFieldRenderer {
     const wave2Amp = 8;
     const waveAudioScale = 1 + audioIntensity * 0.5;
 
-    // Two overlapping layers for depth
     for (let layer = 0; layer < 2; layer++) {
       const layerScale = layer === 0 ? 1 : 0.75;
       const layerRotation = layer * 0.18;
+
+      const layerShadowBlur = (45 + bassIntensity * 20) | 0;
+      const layerHue = this.fastMod360(this.hueBase + layer * 15);
+      ctx.shadowBlur = layerShadowBlur;
+      ctx.shadowColor = this.hsla(layerHue, 100, 70, 0.7);
 
       for (let flame = 0; flame < flames; flame++) {
         const baseAngle = angleStep * flame + timeFlameAngle + layerRotation;
@@ -11058,43 +10841,18 @@ export class FlowFieldRenderer {
           baseRadius + this.fastSin(timeFlameRadius + flame) * maxRadius018;
 
         const hueBase = this.fastMod360(this.hueBase + flame * 12);
-        const hue1 = hueBase;
-        const hue2 = this.fastMod360(hueBase + 35);
-        const hue3 = this.fastMod360(hueBase + 70);
 
         const cosBase = this.fastCos(baseAngle);
         const sinBase = this.fastSin(baseAngle);
 
-        // Cheaper gradient per flame
-        const flameGradient = ctx.createLinearGradient(
-          cosBase * baseRadius,
-          sinBase * baseRadius,
-          cosBase * maxRadius,
-          sinBase * maxRadius,
-        );
-        flameGradient.addColorStop(
-          0,
-          this.hsla(hue1, 100, 75, 0.9 + audioIntensity * 0.1),
-        );
-        flameGradient.addColorStop(
-          0.4,
-          this.hsla(hue2, 100, 70, 0.85 + trebleIntensity * 0.2),
-        );
-        flameGradient.addColorStop(
-          0.8,
-          this.hsla(hue3, 100, 65, 0.6 + bassIntensity * 0.3),
-        );
-        flameGradient.addColorStop(1, this.hsla(hue1, 100, 55, 0));
-
-        ctx.fillStyle = flameGradient;
-        ctx.shadowBlur = 60 + bassIntensity * 25;
-        ctx.shadowColor = this.hsla(hue1, 100, 70, 0.9);
+        const flameAlpha = 0.75 + audioIntensity * 0.15;
+        ctx.fillStyle = this.hsla(hueBase, 100, 70, flameAlpha);
 
         ctx.beginPath();
         for (let i = 0; i <= flamePoints; i++) {
           const t = i * invFlamePoints;
           const currentRadius = baseRadius + (radius - baseRadius) * t;
-          // Simplified multi-wave motion
+
           const baseT = t * Math.PI;
           const wave1 = this.fastSin(baseT * 4 + timeWave1 + flame) * wave1Amp;
           const wave2 = this.fastSin(baseT * 9 + timeWave2) * wave2Amp;
@@ -11111,15 +10869,15 @@ export class FlowFieldRenderer {
       }
     }
 
-    // Ember field: heavily reduced + deterministic, but keeps swirling feel
     ctx.globalCompositeOperation = "lighter";
-    const baseEmbers = 24; // was 40
-    const extraEmbers = (bassIntensity * 32) | 0; // was *60
+    const baseEmbers = 16;
+    const extraEmbers = (bassIntensity * 16) | 0;
     const emberCount = baseEmbers + extraEmbers;
     const maxEmberRadius = maxRadius * 1.1;
 
     let rng = (this.time * 1103515245 + 12345) | 0;
     const twoPi = FlowFieldRenderer.TWO_PI;
+
     for (let i = 0; i < emberCount; i++) {
       const emberAngle = (this.time * 0.0025 + i * 0.5) % twoPi;
       const emberDist = (this.time * 1.6 + i * 9) % maxEmberRadius;
@@ -11128,21 +10886,19 @@ export class FlowFieldRenderer {
       const baseX = this.fastCos(emberAngle) * emberDist + swirlX;
       const baseY = this.fastSin(emberAngle) * emberDist + swirlY;
 
-      // Deterministic small jitter for size/hue
       rng = (rng * 1664525 + 1013904223) | 0;
-      const randNorm = (rng & 0xffff) / 0xffff; // 0–1
-      const emberSize = 1 + randNorm * 2.5 + trebleIntensity * 1.8;
+      const randNorm = (rng & 0xffff) / 0xffff;
+      const emberSize = 1.5 + randNorm * 2 + trebleIntensity * 1.5;
       const emberHue = this.fastMod360(this.hueBase + 10 + randNorm * 50);
       const emberAlpha =
         (1 - emberDist / maxEmberRadius) * (0.55 + audioIntensity * 0.35);
 
       ctx.fillStyle = this.hsla(emberHue, 100, 80, emberAlpha);
-      ctx.beginPath();
-      ctx.arc(baseX, baseY, emberSize, 0, twoPi);
-      ctx.fill();
+
+      const halfSize = emberSize * 0.5;
+      ctx.fillRect(baseX - halfSize, baseY - halfSize, emberSize, emberSize);
     }
 
-    // Core remains strong but single gradient
     ctx.globalCompositeOperation = "source-over";
     const coreRadius = maxRadius * (0.35 + bassIntensity * 0.1);
     const infernalCore = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius);

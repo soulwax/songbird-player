@@ -84,4 +84,3 @@ export type Pattern =
   | "phantomPulse"
   | "infernalFlame"
   | "kaleidoscope";
-

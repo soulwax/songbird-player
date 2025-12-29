@@ -9,11 +9,6 @@ export function renderRays(
   trebleIntensity: number,
 ): void {
   const ctx = p.ctx;
-
-  // HYPER-OPTIMIZATION: Much cheaper rays (faster “buildup”, fewer allocations)
-  // - Dynamic ray count (LOD) to avoid 7x gradient-layering per ray
-  // - Replace offset+gradient loop with 2-pass glow/core stroke
-  // - Central glow drawn as a circle (not a full-canvas fillRect)
   const twoPi = p.TWO_PI;
   const baseRayCount = p.rayCount ?? 60;
   const countScale = 0.65 + audioIntensity * 0.55 + bassIntensity * 0.55;
@@ -35,14 +30,11 @@ export function renderRays(
   const minDimension = Math.min(p.width, p.height);
 
   const rayLengthBase = minDimension * (0.55 + audioIntensity * 0.55);
-  const rayWidth = 1.6 + trebleIntensity * 4.5;
-  const glowWidth = rayWidth * (2.1 + audioIntensity * 0.6);
-  const glowBlur = 10 + trebleIntensity * 22 + audioIntensity * 10;
+  const rayWidth = 2.5 + trebleIntensity * 5.5;
   const hueStep = 360 * invRayCount;
+  const alpha = 0.4 + audioIntensity * 0.45;
 
-  // Faster perceived buildup: higher baseline alpha even at low audio
-  const alphaBase = 0.22 + audioIntensity * 0.35;
-  const coreAlpha = 0.35 + audioIntensity * 0.45;
+  const rayData: Array<{ endX: number; endY: number; hue: number }> = [];
 
   for (let i = 0; i < rayCount; i++) {
     const spiralAngle = timeWave1 + i * 0.1;
@@ -53,30 +45,23 @@ export function renderRays(
 
     const endX = p.fastCos(angle) * rayLength;
     const endY = p.fastSin(angle) * rayLength;
-
     const hue = p.fastMod360(p.hueBase + i * hueStep + timeHue);
 
-    // Glow pass
-    ctx.shadowBlur = glowBlur;
-    ctx.shadowColor = p.hsla(hue, 100, 55, alphaBase * 0.9);
-    ctx.strokeStyle = p.hsla(hue, 100, 55, alphaBase * 0.35);
-    ctx.lineWidth = glowWidth;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
+    rayData.push({ endX, endY, hue });
+  }
 
-    // Core pass
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = p.hsla(hue, 95, 72, coreAlpha);
-    ctx.lineWidth = rayWidth;
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = rayWidth;
+
+  for (let i = 0; i < rayCount; i++) {
+    const { endX, endY, hue } = rayData[i]!;
+    ctx.strokeStyle = p.hsla(hue, 95, 65, alpha);
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.lineTo(endX, endY);
     ctx.stroke();
   }
 
-  // Central glow (circle, not full-canvas fill)
   const glowRadius = 90 + bassIntensity * 110;
   const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
   glowGradient.addColorStop(
@@ -96,4 +81,3 @@ export function renderRays(
 
   ctx.restore();
 }
-

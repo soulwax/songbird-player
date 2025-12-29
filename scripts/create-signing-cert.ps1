@@ -1,3 +1,4 @@
+# File: scripts/create-signing-cert.ps1
 # Create a Self-Signed Code Signing Certificate for Electron Apps
 # Usage: .\create-signing-cert.ps1 -AppName "MyElectronApp"
 

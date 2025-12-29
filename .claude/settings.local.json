@@ -42,7 +42,8 @@
       "Bash(pm2 monit:*)",
       "Bash(pm2 list:*)",
       "Bash(npm run pm2:start:*)",
-      "Bash(pm2 save:*)"
+      "Bash(pm2 save:*)",
+      "Bash(npm run deploy:*)"
     ],
     "deny": [],
     "ask": []

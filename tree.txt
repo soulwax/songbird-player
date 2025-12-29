@@ -1,11 +1,13 @@
-darkfloor-player
+songbird-frontend
 ├───.env.development
 ├───.env.example
 ├───.env.local
 ├───.env.production
+├───.env.vercel.example
 ├───.gitignore
 ├───.markdownlint-cli2.jsonc
 ├───.pm2ignore
+├───.vercelignore
 ├───CHANGELOG.md
 ├───CLAUDE.md
 ├───config1.1
@@ -23,12 +25,14 @@ darkfloor-player
 ├───prettier.config.js
 ├───README.md
 ├───ROADMAP.md
+├───rollup.config.mjs
 ├───setup-database.sh
 ├───start-database.sh
 ├───tailwind.config.js
 ├───tree.txt
 ├───tsconfig.json
 ├───tsconfig.tsbuildinfo
+├───vercel.json
 ├───.claude/
 │   └───settings.local.json
 ├───.cursor/
@@ -85,6 +89,8 @@ darkfloor-player
 │       ├───0013_snapshot.json
 │       └───_journal.json
 ├───electron/
+│   ├───AZURE_SIGNING_SETUP.md
+│   ├───DISCORD_OAUTH.md
 │   ├───main.cjs
 │   ├───package.json
 │   ├───preload.cjs
@@ -93,7 +99,8 @@ darkfloor-player
 │   ├───sign.js
 │   ├───SIGNING.md
 │   ├───types.d.ts
-│   └───verify-build.js
+│   ├───verify-build.js
+│   └───WINDOWS_SIGNING.md
 ├───logs/
 │   └───pm2/
 │       ├───.gitkeep
@@ -104,9 +111,10 @@ darkfloor-player
 │       ├───error.log
 │       └───out.log
 ├───public/
+│   ├───CHANGELOG.md
 │   ├───emily-the-strange.png
-│   ├───fallback-urA3Ro15d6GNfWNSz80Y1.js
 │   ├───favicon.ico
+│   ├───icon.icns
 │   ├───icon.ico
 │   ├───icon.png
 │   ├───AppIcons/
@@ -169,12 +177,23 @@ darkfloor-player
 │       ├───icon.ico
 │       └───icon.png
 ├───scripts/
+│   ├───addRelativePath.py
 │   ├───check-users.ts
+│   ├───create-signing-cert.ps1
+│   ├───create-test-cert.ps1
+│   ├───download-node.js
 │   ├───ensure-build.js
+│   ├───gen-version.js
+│   ├───generate-ssl-cert.js
 │   ├───load-env-build.js
 │   ├───populate-userhash.ts
+│   ├───README.md
+│   ├───reset-version.js
 │   ├───server.js
-│   └───set-profile-public.ts
+│   ├───set-profile-public.ts
+│   ├───set-version.js
+│   └───copydb/
+│       └───package-lock.json
 └───src/
     ├───env.js
     ├───global.d.ts
@@ -222,6 +241,8 @@ darkfloor-player
     │   ├───AutoQueueBadge.tsx
     │   ├───BottomSheet.tsx
     │   ├───Button.tsx
+    │   ├───ChangelogModal.tsx
+    │   ├───DynamicTitle.tsx
     │   ├───ElectronStorageInit.tsx
     │   ├───EmptyState.tsx
     │   ├───EnhancedPlayer.tsx

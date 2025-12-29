@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // File: scripts/download-node.js
-// Downloads a portable Node.js runtime for bundling with Electron app
 
 import fs from "fs";
 import https from "https";

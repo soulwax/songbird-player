@@ -1,3 +1,4 @@
+# File: scripts/create-test-cert.ps1
 # Create a self-signed code signing certificate for testing
 # WARNING: This is ONLY for testing. Self-signed certs won't eliminate SmartScreen warnings.
 # For production, you need a real certificate from DigiCert, Sectigo, etc.

@@ -1,6 +1,7 @@
+# File: .vercelignore
 # Vercel Ignore - Exclude files from deployment to reduce bundle size
-
 # Development
+
 .vscode
 .idea
 *.log
