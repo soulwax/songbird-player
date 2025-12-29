@@ -33,8 +33,14 @@ export function getBaseUrl(): string {
       // Ignore - we're on the client or variable is not accessible
       // This can happen if the env library throws when accessing server vars on client
     }
+    
+    // In development mode, use localhost instead of production URL
+    if (process.env.NODE_ENV === "development") {
+      const port = process.env.PORT || "3222";
+      return `http://localhost:${port}`;
+    }
   }
 
-  // Final fallback to default URL
+  // Final fallback to default URL (production only)
   return "https://darkfloor.art";
 }

@@ -63,7 +63,8 @@ const config = {
   reactStrictMode: true,
 
   // Standalone output for both Electron and Vercel (optimized builds)
-  output: "standalone",
+  // Only use standalone in production builds, not in development
+  ...(process.env.NODE_ENV === "production" && { output: "standalone" }),
   // Electron runs a bundled Next.js server with standalone output
   // Vercel also benefits from standalone mode for optimized bundle size
 
@@ -94,6 +95,12 @@ const config = {
       "@trpc/client",
       "@trpc/react-query",
     ],
+  },
+  // Turbopack configuration (Next.js 15.3.0+)
+  // This configures Turbopack when using --turbo flag in development
+  turbopack: {
+    // Turbopack-specific configuration can be added here if needed
+    // For now, this empty config acknowledges Turbopack usage and suppresses the warning
   },
   images: {
     remotePatterns: [
@@ -130,6 +137,9 @@ const config = {
     ],
     unoptimized: process.env.ELECTRON_BUILD === "true", // Required for Electron
   },
+  // Webpack configuration (only used when not using Turbopack)
+  // When using --turbo flag, this config is ignored and Turbopack is used instead
+  // The warning about webpack config with Turbopack is informational and harmless
   webpack: (config, { isServer }) => {
     // Suppress warnings/errors for Pages Router files that don't exist in App Router
     if (isServer) {
