@@ -6,7 +6,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { api } from "@/trpc/react";
-import type { Track } from "@/types";
+import type { QueuedTrack, SmartQueueState, Track } from "@/types";
 import { useSession } from "next-auth/react";
 import {
   createContext,
@@ -24,6 +24,8 @@ interface AudioPlayerContextType {
   // Player state
   currentTrack: Track | null;
   queue: Track[];
+  queuedTracks: QueuedTrack[];
+  smartQueueState: SmartQueueState;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
@@ -72,9 +74,11 @@ interface AudioPlayerContextType {
   clearQueueAndHistory: () => void;
   isValidTrack: (track: Track | null | undefined) => track is Track;
 
-  // COMMENTED OUT - Smart Queue features disabled for now
-  // addSimilarTracks: (trackId: number, count?: number) => Promise<void>;
-  // generateSmartMix: (seedTrackIds: number[], count?: number) => Promise<void>;
+  // Smart Queue Operations
+  addSmartTracks: (count?: number) => Promise<Track[]>;
+  refreshSmartTracks: () => Promise<void>;
+  clearSmartTracks: () => void;
+  getQueueSections: () => { userTracks: QueuedTrack[]; smartTracks: QueuedTrack[] };
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
@@ -92,18 +96,14 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const createPlaylistMutation = api.music.createPlaylist.useMutation();
   const addToPlaylistMutation = api.music.addToPlaylist.useMutation();
 
-  // COMMENTED OUT - Smart queue settings disabled
-  // const { data: smartQueueSettings } = api.music.getSmartQueueSettings.useQuery(
-  //   undefined,
-  //   { enabled: !!session },
-  // );
+  // Smart queue settings (re-enabled for light smart queue feature)
+  const { data: smartQueueSettings } = api.music.getSmartQueueSettings.useQuery(
+    undefined,
+    { enabled: !!session },
+  );
 
   // TRPC utils for imperative calls
   const utils = api.useUtils();
-
-  // COMMENTED OUT - Smart queue mutations disabled
-  // const generateSmartMixMutation = api.music.generateSmartMix.useMutation();
-  // const logRecommendationMutation = api.music.logRecommendation.useMutation();
 
   const hasCompleteTrackData = (track: Track | null | undefined): boolean => {
     if (!track) return false;
@@ -163,14 +163,24 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  // COMMENTED OUT - Auto-queue trigger disabled
-  // const handleAutoQueueTrigger = useCallback(
-  //   async (currentTrack: Track, _queueLength: number) => {
-  //     // Auto-queue functionality disabled - comment out to simplify queue
-  //     return [];
-  //   },
-  //   [],
-  // );
+  // Smart queue trigger - fetches similar tracks for manual smart queue feature
+  const handleAutoQueueTrigger = useCallback(
+    async (currentTrack: Track, _queueLength: number): Promise<Track[]> => {
+      try {
+        const result = await utils.music.getSimilarTracks.fetch({
+          trackId: currentTrack.id,
+          limit: 10, // Fetch 10, will use ~5
+          useEnhanced: false, // Use basic mode for speed
+        });
+
+        return result || [];
+      } catch (error) {
+        console.error("[AudioPlayerContext] Failed to fetch similar tracks:", error);
+        return [];
+      }
+    },
+    [utils],
+  );
 
   const player = useAudioPlayer({
     onTrackChange: (track) => {
@@ -191,8 +201,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    // COMMENTED OUT - Auto-queue disabled
-    // onAutoQueueTrigger: handleAutoQueueTrigger,
+    onAutoQueueTrigger: handleAutoQueueTrigger,
     onError: (error, trackId) => {
       console.error(
         `[AudioPlayerContext] Playback error for track ${trackId}:`,
@@ -220,8 +229,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         showToast("Playback failed. Please try again.", "error");
       }
     },
-    // COMMENTED OUT - Smart queue settings disabled
-    // smartQueueSettings: smartQueueSettings ?? undefined,
+    smartQueueSettings: smartQueueSettings ?? undefined,
   });
 
   // Watch for session changes (login/logout) and clear queue
@@ -410,6 +418,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     // State
     currentTrack: player.currentTrack,
     queue: player.queue,
+    queuedTracks: player.queuedTracks,
+    smartQueueState: player.smartQueueState,
     isPlaying: player.isPlaying,
     currentTime: player.currentTime,
     duration: player.duration,
@@ -458,9 +468,11 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     clearQueueAndHistory: player.clearQueueAndHistory,
     isValidTrack: player.isValidTrack,
 
-    // COMMENTED OUT - Smart Queue features disabled
-    // addSimilarTracks,
-    // generateSmartMix,
+    // Smart Queue Operations
+    addSmartTracks: player.addSmartTracks,
+    refreshSmartTracks: player.refreshSmartTracks,
+    clearSmartTracks: player.clearSmartTracks,
+    getQueueSections: player.getQueueSections,
   };
 
   return (

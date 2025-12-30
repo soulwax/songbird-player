@@ -205,6 +205,8 @@ export default function PersistentPlayer() {
           {showQueue && (
             <EnhancedQueue
               queue={player.queue}
+              queuedTracks={player.queuedTracks}
+              smartQueueState={player.smartQueueState}
               currentTrack={player.currentTrack}
               onClose={() => setShowQueue(false)}
               onRemove={player.removeFromQueue}
@@ -212,6 +214,9 @@ export default function PersistentPlayer() {
               onReorder={player.reorderQueue}
               onPlayFrom={player.playFromQueue}
               onSaveAsPlaylist={player.saveQueueAsPlaylist}
+              onAddSmartTracks={player.addSmartTracks}
+              onRefreshSmartTracks={player.refreshSmartTracks}
+              onClearSmartTracks={player.clearSmartTracks}
             />
           )}
         </>
@@ -269,6 +274,8 @@ export default function PersistentPlayer() {
           {showQueue && (
             <EnhancedQueue
               queue={player.queue}
+              queuedTracks={player.queuedTracks}
+              smartQueueState={player.smartQueueState}
               currentTrack={player.currentTrack}
               onClose={() => setShowQueue(false)}
               onRemove={player.removeFromQueue}
@@ -276,6 +283,9 @@ export default function PersistentPlayer() {
               onReorder={player.reorderQueue}
               onPlayFrom={player.playFromQueue}
               onSaveAsPlaylist={player.saveQueueAsPlaylist}
+              onAddSmartTracks={player.addSmartTracks}
+              onRefreshSmartTracks={player.refreshSmartTracks}
+              onClearSmartTracks={player.clearSmartTracks}
             />
           )}
         </>

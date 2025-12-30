@@ -5,9 +5,9 @@
 import { AUDIO_CONSTANTS } from "@/config/constants";
 import { STORAGE_KEYS } from "@/config/storage";
 import { localStorage } from "@/services/storage";
-import type { SmartQueueSettings, Track } from "@/types";
+import type { QueuedTrack, SmartQueueSettings, SmartQueueState, Track } from "@/types";
 import { getStreamUrlById } from "@/utils/api";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadPersistedQueueState } from "./useQueuePersistence";
 
 type RepeatMode = "none" | "one" | "all";
@@ -27,9 +27,15 @@ interface UseAudioPlayerOptions {
 export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
   const { onTrackChange, onTrackEnd, onDuplicateTrack, onError } = options;
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  // NEW QUEUE-FIRST APPROACH: currentTrack is always queue[0]
-  // queue[0] = current track, queue[1..n] = upcoming tracks
-  const [queue, setQueue] = useState<Track[]>([]);
+
+  // SPOTIFY-STYLE QUEUE: QueuedTrack with metadata for user vs smart queue
+  const [queuedTracks, setQueuedTracks] = useState<QueuedTrack[]>([]);
+  const [smartQueueState, setSmartQueueState] = useState<SmartQueueState>({
+    isActive: false,
+    lastRefreshedAt: null,
+    seedTrackId: null,
+  });
+
   const [history, setHistory] = useState<Track[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -51,8 +57,39 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
   const failedTracksRef = useRef<Set<number>>(new Set());
   const isInitialMountRef = useRef(true); // Track if this is the first render
 
-  // Derived state: currentTrack is always queue[0]
+  // Derived state: queue is extracted from queuedTracks for backward compatibility
+  const queue = useMemo(() => queuedTracks.map(qt => qt.track), [queuedTracks]);
   const currentTrack = queue[0] ?? null;
+
+  // Helper functions for queue management
+  const generateQueueId = useCallback(() => {
+    return `queue-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  }, []);
+
+  const createQueuedTrack = useCallback((track: Track, source: 'user' | 'smart'): QueuedTrack => {
+    return {
+      track,
+      queueSource: source,
+      addedAt: new Date(),
+      queueId: generateQueueId(),
+    };
+  }, [generateQueueId]);
+
+  const getQueueSections = useCallback(() => {
+    const userTracks: QueuedTrack[] = [];
+    const smartTracks: QueuedTrack[] = [];
+
+    // Skip queue[0] (current track) when splitting sections
+    queuedTracks.slice(1).forEach(qt => {
+      if (qt.queueSource === 'smart') {
+        smartTracks.push(qt);
+      } else {
+        userTracks.push(qt);
+      }
+    });
+
+    return { userTracks, smartTracks };
+  }, [queuedTracks]);
 
   // Load persisted settings and queue state
   useEffect(() => {
@@ -65,10 +102,24 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
     // Load persisted queue state
     const persistedState = loadPersistedQueueState();
     if (persistedState) {
-      // In queue-first approach, queue[0] is always the current track
-      // persistedState.queue already includes currentTrack at position 0
-      // So we use it directly without merging to avoid duplication
-      setQueue(persistedState.queue);
+      // Persistence migration will be handled in useQueuePersistence.ts
+      // For now, check if we have queuedTracks (V2) or queue (V1)
+      const stateAny = persistedState as any;
+      if ('queuedTracks' in persistedState && Array.isArray(stateAny.queuedTracks)) {
+        setQueuedTracks(stateAny.queuedTracks as QueuedTrack[]);
+        if (stateAny.smartQueueState) {
+          setSmartQueueState(stateAny.smartQueueState as SmartQueueState);
+        }
+      } else if ('queue' in persistedState && persistedState.queue) {
+        // Migrate old V1 format: convert Track[] to QueuedTrack[]
+        const migratedTracks = persistedState.queue.map((track, idx) => ({
+          track,
+          queueSource: 'user' as const,
+          addedAt: new Date(),
+          queueId: `migrated-${track.id}-${idx}`,
+        }));
+        setQueuedTracks(migratedTracks);
+      }
       setHistory(persistedState.history);
       setIsShuffled(persistedState.isShuffled);
       setRepeatMode(persistedState.repeatMode);
@@ -86,18 +137,19 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
     localStorage.set(STORAGE_KEYS.PLAYBACK_RATE, playbackRate);
   }, [playbackRate]);
 
-  // Persist queue state
+  // Persist queue state (V2 format)
   useEffect(() => {
     const queueState = {
-      queue,
+      version: 2 as const,
+      queuedTracks,
+      smartQueueState,
       history,
-      currentTrack,
       currentTime,
       isShuffled,
       repeatMode,
     };
     localStorage.set(STORAGE_KEYS.QUEUE_STATE, queueState);
-  }, [queue, history, currentTrack, currentTime, isShuffled, repeatMode]);
+  }, [queuedTracks, smartQueueState, history, currentTime, isShuffled, repeatMode]);
 
   // Initialize audio element
   useEffect(() => {
@@ -144,24 +196,30 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
       return;
     }
 
-    // NEW QUEUE-FIRST APPROACH:
-    // queue[0] is current track, queue[1..n] are upcoming
-    if (queue.length > 1) {
-      // Move current track (queue[0]) to history and advance queue
+    // QUEUE-FIRST APPROACH with QueuedTrack:
+    // queuedTracks[0] is current track, queuedTracks[1..n] are upcoming
+    if (queuedTracks.length > 1) {
+      // Move current track (queuedTracks[0]) to history and advance queue
       setHistory((prev) => [...prev, currentTrack]);
-      setQueue((prev) => prev.slice(1)); // Remove queue[0], queue[1] becomes new queue[0]
+      setQueuedTracks((prev) => prev.slice(1)); // Remove queuedTracks[0], queuedTracks[1] becomes new queuedTracks[0]
     } else if (repeatMode === "all") {
       // Restart the queue with all played tracks (history + current track)
       if (history.length > 0) {
         const allTracks = [...history, currentTrack];
-        setQueue(allTracks);
+        const newQueuedTracks = allTracks.map((track, idx) => ({
+          track,
+          queueSource: 'user' as const,
+          addedAt: new Date(),
+          queueId: `repeat-${track.id}-${idx}`,
+        }));
+        setQueuedTracks(newQueuedTracks);
         setHistory([]);
       }
     } else {
       // No more tracks in queue, playback ends
       onTrackEnd?.(currentTrack);
       // Clear the queue since playback is complete
-      setQueue([]);
+      setQueuedTracks([]);
       setIsPlaying(false);
       console.log(
         "[useAudioPlayer] 🏁 Playback ended, queue cleared",
@@ -245,7 +303,7 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
       // NEW: queue[0] is current, queue[1] is next
       if (queue.length > 1) {
         setHistory((prev) => [...prev, currentTrack!]);
-        setQueue((prev) => prev.slice(1));
+        setQueuedTracks((prev) => prev.slice(1));
       }
     };
 
@@ -257,7 +315,7 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
         // Go to previous track
         const prevTrack = history[history.length - 1];
         if (prevTrack && currentTrack) {
-          setQueue((prev) => [prevTrack, ...prev]); // Insert prevTrack at queue[0]
+          setQueuedTracks((prev) => [createQueuedTrack(prevTrack, 'user'), ...prev]); // Insert prevTrack at queue[0]
         }
         setHistory((prev) => prev.slice(0, -1));
       }
@@ -731,10 +789,10 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
     setHistory(previousTracks);
 
     // NEW: Insert prevTrack at queue[0], keeping rest of queue intact
-    setQueue((prev) => [prevTrack, ...prev]);
+    setQueuedTracks((prev) => [createQueuedTrack(prevTrack, 'user'), ...prev]);
 
     return prevTrack;
-  }, [history]);
+  }, [history, createQueuedTrack]);
 
   // NEW: Validate track data integrity
   const isValidTrack = useCallback(
@@ -767,11 +825,11 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
       console.log("[useAudioPlayer] 📥 addToQueue called:", {
         trackCount: tracks.length,
         checkDuplicates,
-        currentQueueSize: queue.length,
+        currentQueueSize: queuedTracks.length,
         tracks: tracks.map((t) => `${t.title} - ${t.artist.name}`),
       });
 
-      // NEW: First, filter out invalid tracks
+      // Filter out invalid tracks
       const validTracks = tracks.filter((t): t is Track => {
         const valid = isValidTrack(t);
         if (!valid) {
@@ -791,9 +849,9 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
       }
 
       if (checkDuplicates) {
-        // NEW: Check against entire queue (including queue[0] which is current track)
+        // Check against entire queue (including queuedTracks[0] which is current track)
         const duplicates = validTracks.filter((t) =>
-          queue.some((q) => q.id === t.id),
+          queuedTracks.some((qt) => qt.track.id === t.id),
         );
 
         if (duplicates.length > 0 && onDuplicateTrack) {
@@ -802,7 +860,7 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
 
         // Only add non-duplicate, valid tracks
         const uniqueTracks = validTracks.filter(
-          (t) => !queue.some((q) => q.id === t.id),
+          (t) => !queuedTracks.some((qt) => qt.track.id === t.id),
         );
 
         console.log("[useAudioPlayer] 🔍 After validation & duplicate check:", {
@@ -813,14 +871,15 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
         });
 
         if (uniqueTracks.length > 0) {
-          setQueue((prev) => {
+          const newQueuedTracks = uniqueTracks.map(t => createQueuedTrack(t, 'user'));
+          setQueuedTracks((prev) => {
             console.log("[useAudioPlayer] ✅ Adding tracks to queue:", {
               previousSize: prev.length,
-              adding: uniqueTracks.length,
-              newSize: prev.length + uniqueTracks.length,
+              adding: newQueuedTracks.length,
+              newSize: prev.length + newQueuedTracks.length,
             });
-            // Append to end of queue (queue[0] stays as current track)
-            return [...prev, ...uniqueTracks];
+            // Append to end of queue (queuedTracks[0] stays as current track)
+            return [...prev, ...newQueuedTracks];
           });
         } else {
           console.log(
@@ -831,24 +890,25 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
         console.log(
           "[useAudioPlayer] ➕ Adding valid tracks without duplicate check",
         );
-        setQueue((prev) => {
+        const newQueuedTracks = validTracks.map(t => createQueuedTrack(t, 'user'));
+        setQueuedTracks((prev) => {
           console.log("[useAudioPlayer] ✅ Queue updated:", {
             previousSize: prev.length,
-            adding: validTracks.length,
-            newSize: prev.length + validTracks.length,
+            adding: newQueuedTracks.length,
+            newSize: prev.length + newQueuedTracks.length,
           });
-          return [...prev, ...validTracks];
+          return [...prev, ...newQueuedTracks];
         });
       }
     },
-    [queue, onDuplicateTrack, isValidTrack],
+    [queuedTracks, createQueuedTrack, onDuplicateTrack, isValidTrack],
   );
 
   const addToPlayNext = useCallback(
     (track: Track | Track[]) => {
       const tracks = Array.isArray(track) ? track : [track];
 
-      // NEW: Validate tracks before adding
+      // Validate tracks before adding
       const validTracks = tracks.filter((t): t is Track => {
         const valid = isValidTrack(t);
         if (!valid) {
@@ -867,44 +927,45 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
         return;
       }
 
-      // NEW: Insert at position 1 (right after current track at queue[0])
-      setQueue((prev) => {
+      // Insert at position 1 (right after current track at queuedTracks[0])
+      const newQueuedTracks = validTracks.map(t => createQueuedTrack(t, 'user'));
+      setQueuedTracks((prev) => {
         if (prev.length === 0) {
-          return validTracks; // No current track, these become the queue
+          return newQueuedTracks; // No current track, these become the queue
         }
         const [current, ...rest] = prev;
-        return [current!, ...validTracks, ...rest];
+        return [current!, ...newQueuedTracks, ...rest];
       });
     },
-    [isValidTrack],
+    [createQueuedTrack, isValidTrack],
   );
 
   const removeFromQueue = useCallback((index: number) => {
-    // NEW: Prevent removing queue[0] (current track)
+    // Prevent removing queuedTracks[0] (current track)
     if (index === 0) {
       console.warn(
-        "[useAudioPlayer] Cannot remove currently playing track (queue[0])",
+        "[useAudioPlayer] Cannot remove currently playing track (queuedTracks[0])",
       );
       return;
     }
-    setQueue((prev) => prev.filter((_, i) => i !== index));
+    setQueuedTracks((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   const clearQueue = useCallback(() => {
-    // NEW: Clear only upcoming tracks (queue[1..n]), keep current track (queue[0])
-    setQueue((prev) => (prev.length > 0 ? [prev[0]!] : []));
+    // Clear only upcoming tracks (queuedTracks[1..n]), keep current track (queuedTracks[0])
+    setQueuedTracks((prev) => (prev.length > 0 ? [prev[0]!] : []));
   }, []);
 
   const reorderQueue = useCallback((oldIndex: number, newIndex: number) => {
-    // NEW: Prevent reordering queue[0] (current track)
+    // Prevent reordering queuedTracks[0] (current track)
     if (oldIndex === 0 || newIndex === 0) {
       console.warn(
-        "[useAudioPlayer] Cannot reorder currently playing track (queue[0])",
+        "[useAudioPlayer] Cannot reorder currently playing track (queuedTracks[0])",
       );
       return;
     }
 
-    setQueue((prev) => {
+    setQueuedTracks((prev) => {
       const newQueue = [...prev];
       const [removed] = newQueue.splice(oldIndex, 1);
 
@@ -931,22 +992,22 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
       const tracksAfter = queue.slice(index + 1); // Everything after selected
 
       setHistory((prev) => [...prev, ...tracksToHistory]);
-      setQueue([selectedTrack, ...tracksAfter]); // Selected becomes queue[0]
+      setQueuedTracks([createQueuedTrack(selectedTrack, 'user'), ...tracksAfter.map(t => createQueuedTrack(t, 'user'))]); // Selected becomes queue[0]
 
       return selectedTrack;
     },
-    [queue],
+    [queue, createQueuedTrack],
   );
 
   const smartShuffle = useCallback(() => {
-    setQueue((prev) => {
+    setQueuedTracks((prev) => {
       if (prev.length <= 1) return prev;
 
       // NEW: Preserve queue[0] (current track), only shuffle rest
-      const [currentTrack, ...rest] = prev;
+      const [currentQueuedTrack, ...rest] = prev;
       if (rest.length === 0) return prev;
 
-      const shuffled = [...rest];
+      const shuffled = rest.map(qt => qt.track);
       const artists = new Map<number, Track[]>();
 
       // Group tracks by artist
@@ -1003,9 +1064,9 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
       }
 
       // Return current track at queue[0] followed by shuffled rest
-      return [currentTrack!, ...result];
+      return [currentQueuedTrack!, ...result.map(t => createQueuedTrack(t, 'user'))];
     });
-  }, []);
+  }, [createQueuedTrack]);
 
   const toggleShuffle = useCallback(() => {
     setIsShuffled((prev) => {
@@ -1020,7 +1081,7 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
         // Restore original order (preserving current queue[0])
         if (originalQueueOrder.length > 0 && queue.length > 0) {
           const [current] = queue;
-          setQueue([current!, ...originalQueueOrder]);
+          setQueuedTracks([createQueuedTrack(current!, 'user'), ...originalQueueOrder.map(t => createQueuedTrack(t, 'user'))]);
           setOriginalQueueOrder([]);
         }
       }
@@ -1034,6 +1095,60 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
       if (prev === "none") return "all";
       if (prev === "all") return "one";
       return "none";
+    });
+  }, []);
+
+  // Smart Queue Operations
+  const addSmartTracks = useCallback(async (count = 5): Promise<Track[]> => {
+    const currentQueuedTrack = queuedTracks[0];
+    if (!currentQueuedTrack) {
+      console.warn("[useAudioPlayer] ⚠️ Cannot add smart tracks: no current track");
+      return [];
+    }
+
+    const seedTrack = currentQueuedTrack.track;
+    console.log("[useAudioPlayer] 🎵 Adding smart tracks based on:", seedTrack.title);
+
+    try {
+      // Call the smart queue service (will be wired up in AudioPlayerContext)
+      if (options.onAutoQueueTrigger) {
+        const recommendedTracks = await options.onAutoQueueTrigger(seedTrack, queuedTracks.length);
+        const tracksToAdd = recommendedTracks.slice(0, count);
+
+        if (tracksToAdd.length > 0) {
+          const smartQueuedTracks = tracksToAdd.map(t => createQueuedTrack(t, 'smart'));
+          setQueuedTracks((prev) => [...prev, ...smartQueuedTracks]);
+          setSmartQueueState({
+            isActive: true,
+            lastRefreshedAt: new Date(),
+            seedTrackId: seedTrack.id,
+          });
+          console.log(`[useAudioPlayer] ✅ Added ${tracksToAdd.length} smart tracks to queue`);
+          return tracksToAdd;
+        }
+      }
+      return [];
+    } catch (error) {
+      console.error("[useAudioPlayer] ❌ Failed to add smart tracks:", error);
+      return [];
+    }
+  }, [queuedTracks, createQueuedTrack, options]);
+
+  const refreshSmartTracks = useCallback(async (): Promise<void> => {
+    console.log("[useAudioPlayer] 🔄 Refreshing smart tracks");
+    // Remove all current smart tracks
+    setQueuedTracks((prev) => prev.filter(qt => qt.queueSource !== 'smart'));
+    // Add new smart tracks
+    await addSmartTracks();
+  }, [addSmartTracks]);
+
+  const clearSmartTracks = useCallback(() => {
+    console.log("[useAudioPlayer] 🧹 Clearing smart tracks");
+    setQueuedTracks((prev) => prev.filter(qt => qt.queueSource !== 'smart'));
+    setSmartQueueState({
+      isActive: false,
+      lastRefreshedAt: null,
+      seedTrackId: null,
     });
   }, []);
 
@@ -1144,16 +1259,16 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
 
   // NEW: Remove duplicate tracks from queue
   const removeDuplicates = useCallback(() => {
-    setQueue((prev) => {
+    setQueuedTracks((prev) => {
       if (prev.length <= 1) return prev;
 
       const seen = new Set<number>();
-      const deduplicated: Track[] = [];
+      const deduplicated: QueuedTrack[] = [];
 
-      for (const track of prev) {
-        if (!seen.has(track.id)) {
-          seen.add(track.id);
-          deduplicated.push(track);
+      for (const qt of prev) {
+        if (!seen.has(qt.track.id)) {
+          seen.add(qt.track.id);
+          deduplicated.push(qt);
         }
       }
 
@@ -1170,8 +1285,8 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
 
   // NEW: Clean invalid tracks from queue
   const cleanInvalidTracks = useCallback(() => {
-    setQueue((prev) => {
-      const valid = prev.filter((track) => isValidTrack(track));
+    setQueuedTracks((prev) => {
+      const valid = prev.filter((qt) => isValidTrack(qt.track));
       const removedCount = prev.length - valid.length;
 
       if (removedCount > 0) {
@@ -1186,20 +1301,20 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
 
   // NEW: Full queue cleanup (duplicates + invalid tracks)
   const cleanQueue = useCallback(() => {
-    setQueue((prev) => {
+    setQueuedTracks((prev) => {
       if (prev.length === 0) return prev;
 
       // First, remove invalid tracks
-      const valid = prev.filter((track) => isValidTrack(track));
+      const valid = prev.filter((qt) => isValidTrack(qt.track));
 
       // Then, remove duplicates
       const seen = new Set<number>();
-      const cleaned: Track[] = [];
+      const cleaned: QueuedTrack[] = [];
 
-      for (const track of valid) {
-        if (!seen.has(track.id)) {
-          seen.add(track.id);
-          cleaned.push(track);
+      for (const qt of valid) {
+        if (!seen.has(qt.track.id)) {
+          seen.add(qt.track.id);
+          cleaned.push(qt);
         }
       }
 
@@ -1222,7 +1337,7 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
     console.log(
       "[useAudioPlayer] 🧹 Clearing queue and history (user session change)",
     );
-    setQueue([]);
+    setQueuedTracks([]);
     setHistory([]);
     setOriginalQueueOrder([]);
     setIsPlaying(false);
@@ -1272,7 +1387,7 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
           setHistory((prev) => [...prev, currentTrack]);
         }
         // FIX: Insert new track at position 0, keep rest of queue
-        setQueue([track, ...queue.slice(1)]); // Keep queue[1..n], replace queue[0]
+        setQueuedTracks((prev) => [createQueuedTrack(track, 'user'), ...prev.slice(1)]); // Keep queue[1..n], replace queue[0]
       } else if (trackIndex === 0) {
         // Track is already playing (queue[0]), just restart it
         console.log(
@@ -1333,6 +1448,8 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
     // State
     currentTrack,
     queue,
+    queuedTracks,
+    smartQueueState,
     history,
     isPlaying,
     currentTime,
@@ -1362,7 +1479,7 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
       setHistory((prev) => [...prev, currentTrack!]);
 
       // Shift queue: nextTrack becomes queue[0]
-      setQueue([nextTrack!, ...remainingQueue]);
+      setQueuedTracks((prev) => prev.slice(1));
       return nextTrack!;
     }, [queue]),
     playPrevious,
@@ -1389,6 +1506,12 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
     cleanQueue,
     clearQueueAndHistory,
     isValidTrack,
+
+    // Smart Queue Operations
+    addSmartTracks,
+    refreshSmartTracks,
+    clearSmartTracks,
+    getQueueSections,
 
     // Ref
     audioRef,

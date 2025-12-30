@@ -24,6 +24,7 @@ export interface SwipeableTrackCardProps {
   track: Track;
   onPlay: (track: Track) => void;
   onAddToQueue: (track: Track) => void;
+  onAddToPlayNext?: (track: Track) => void;
   showActions?: boolean;
   index?: number;
   onArtistClick?: (artistName: string) => void;
@@ -37,6 +38,7 @@ export default function SwipeableTrackCard({
   track,
   onPlay,
   onAddToQueue,
+  onAddToPlayNext,
   showActions = true,
   index = 0,
   onArtistClick,
@@ -411,6 +413,23 @@ export default function SwipeableTrackCard({
                     transition={springPresets.snappy}
                     className="absolute right-0 z-20 mt-2 w-56 rounded-xl border border-[rgba(244,178,102,0.14)] bg-[rgba(16,23,33,0.98)] py-2 shadow-xl backdrop-blur-xl md:w-48"
                   >
+                    {onAddToPlayNext && (
+                      <>
+                        <button
+                          onClick={() => {
+                            onAddToPlayNext(track);
+                            showToast(`"${track.title}" will play next`, "success");
+                            setShowMenu(false);
+                            hapticMedium();
+                          }}
+                          className="w-full px-4 py-3 text-left text-sm text-[var(--color-text)] transition-colors hover:bg-[rgba(244,178,102,0.1)] md:py-2 flex items-center gap-3"
+                        >
+                          <Play className="h-4 w-4" />
+                          <span>Play next</span>
+                        </button>
+                        <div className="mx-3 my-1 border-t border-[rgba(245,241,232,0.08)]" />
+                      </>
+                    )}
                     <div className="px-4 py-2 text-xs font-semibold tracking-wider text-[var(--color-muted)] uppercase">
                       Add to Playlist
                     </div>

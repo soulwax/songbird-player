@@ -4,7 +4,7 @@
 
 import { useToast } from "@/contexts/ToastContext";
 import { api } from "@/trpc/react";
-import type { SmartQueueSettings, Track } from "@/types";
+import type { QueuedTrack, SmartQueueSettings, SmartQueueState, Track } from "@/types";
 import { getCoverImage } from "@/utils/images";
 import { formatDuration } from "@/utils/time";
 import {
@@ -27,6 +27,7 @@ import {
   GripVertical,
   Loader2,
   Play,
+  RefreshCw,
   Save,
   Search,
   Settings,
@@ -46,6 +47,7 @@ interface QueueItemProps {
   onPlay: () => void;
   onRemove: () => void;
   sortableId: string;
+  isSmartTrack?: boolean;
 }
 
 function SortableQueueItem({
@@ -55,6 +57,7 @@ function SortableQueueItem({
   onPlay,
   onRemove,
   sortableId,
+  isSmartTrack,
 }: QueueItemProps) {
   const {
     attributes,
@@ -90,12 +93,19 @@ function SortableQueueItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-3 p-3 transition-colors ${
+      className={`group relative flex items-center gap-3 p-3 transition-colors ${
         isActive
           ? "bg-[rgba(244,178,102,0.16)] ring-1 ring-[rgba(244,178,102,0.3)]"
-          : "hover:bg-[rgba(244,178,102,0.08)]"
+          : isSmartTrack
+            ? "bg-[rgba(88,198,177,0.04)] hover:bg-[rgba(88,198,177,0.08)]"
+            : "hover:bg-[rgba(244,178,102,0.08)]"
       }`}
     >
+      {/* Left accent bar for smart tracks */}
+      {isSmartTrack && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[var(--color-accent-strong)] rounded-r" />
+      )}
+
       {/* Drag Handle */}
       <button
         className="flex-shrink-0 cursor-grab text-[var(--color-muted)] transition-colors hover:text-[var(--color-text)] active:cursor-grabbing"
@@ -172,6 +182,8 @@ function SortableQueueItem({
 
 interface EnhancedQueueProps {
   queue: Track[];
+  queuedTracks: QueuedTrack[];
+  smartQueueState: SmartQueueState;
   currentTrack: Track | null;
   onClose: () => void;
   onRemove: (index: number) => void;
@@ -179,6 +191,9 @@ interface EnhancedQueueProps {
   onReorder: (oldIndex: number, newIndex: number) => void;
   onPlayFrom: (index: number) => void;
   onSaveAsPlaylist?: () => void;
+  onAddSmartTracks?: () => Promise<void>;
+  onRefreshSmartTracks?: () => Promise<void>;
+  onClearSmartTracks?: () => void;
   // COMMENTED OUT - Smart queue features disabled
   // onAddSimilarTracks?: (trackId: number, count?: number) => Promise<void>;
   // onGenerateSmartMix?: (
@@ -189,6 +204,8 @@ interface EnhancedQueueProps {
 
 export function EnhancedQueue({
   queue,
+  queuedTracks,
+  smartQueueState,
   currentTrack,
   onClose,
   onRemove,
@@ -196,6 +213,9 @@ export function EnhancedQueue({
   onReorder,
   onPlayFrom,
   onSaveAsPlaylist,
+  onAddSmartTracks,
+  onRefreshSmartTracks,
+  onClearSmartTracks,
   // COMMENTED OUT - Smart queue props disabled
   // onAddSimilarTracks,
   // onGenerateSmartMix,
@@ -260,12 +280,24 @@ export function EnhancedQueue({
 
   const queueEntries = useMemo(
     () =>
-      queue.map((track, index) => ({
-        track,
+      queuedTracks.map((qt, index) => ({
+        track: qt.track,
         index,
-        sortableId: getSortableId(track),
+        sortableId: qt.queueId,
+        isSmartTrack: qt.queueSource === 'smart',
       })),
-    [queue, getSortableId],
+    [queuedTracks],
+  );
+
+  // Split into user and smart sections
+  const userTracks = useMemo(
+    () => queuedTracks.slice(1).filter(qt => qt.queueSource === 'user'),
+    [queuedTracks]
+  );
+
+  const smartTracks = useMemo(
+    () => queuedTracks.slice(1).filter(qt => qt.queueSource === 'smart'),
+    [queuedTracks]
   );
 
   const sensors = useSensors(
@@ -320,6 +352,16 @@ export function EnhancedQueue({
         track.artist.name.toLowerCase().includes(normalizedQuery),
     );
   }, [queueEntries, searchQuery]);
+
+  // Split filtered queue into sections
+  const filteredNowPlaying = filteredQueue.length > 0 ? filteredQueue[0] : null;
+  const filteredUserTracks = useMemo(() => {
+    return filteredQueue.slice(1).filter(entry => !entry.isSmartTrack);
+  }, [filteredQueue]);
+
+  const filteredSmartTracks = useMemo(() => {
+    return filteredQueue.slice(1).filter(entry => entry.isSmartTrack);
+  }, [filteredQueue]);
 
   const totalDuration = queue.reduce((acc, track) => acc + track.duration, 0);
 
@@ -732,19 +774,106 @@ export function EnhancedQueue({
               items={filteredQueue.map((entry) => entry.sortableId)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="divide-y divide-[rgba(255,255,255,0.05)]">
-                {filteredQueue.map(({ track, index, sortableId }) => (
-                  <div key={sortableId} data-track-id={track.id}>
-                    <SortableQueueItem
-                      sortableId={sortableId}
-                      track={track}
-                      index={index}
-                      isActive={currentTrack?.id === track.id}
-                      onPlay={() => onPlayFrom(index)}
-                      onRemove={() => onRemove(index)}
-                    />
+              <div>
+                {/* Now Playing Section */}
+                {filteredNowPlaying && (
+                  <div className="border-b border-[rgba(255,255,255,0.05)]">
+                    <div className="px-3 py-2 text-xs font-semibold text-[var(--color-subtext)] uppercase tracking-wider bg-[rgba(245,241,232,0.02)]">
+                      Now Playing
+                    </div>
+                    <div key={filteredNowPlaying.sortableId} data-track-id={filteredNowPlaying.track.id}>
+                      <SortableQueueItem
+                        sortableId={filteredNowPlaying.sortableId}
+                        track={filteredNowPlaying.track}
+                        index={filteredNowPlaying.index}
+                        isActive={currentTrack?.id === filteredNowPlaying.track.id}
+                        onPlay={() => onPlayFrom(filteredNowPlaying.index)}
+                        onRemove={() => onRemove(filteredNowPlaying.index)}
+                        isSmartTrack={filteredNowPlaying.isSmartTrack}
+                      />
+                    </div>
                   </div>
-                ))}
+                )}
+
+                {/* User Tracks Section */}
+                {filteredUserTracks.length > 0 && (
+                  <div className="border-b border-[rgba(255,255,255,0.05)]">
+                    <div className="px-3 py-2 text-xs font-semibold text-[var(--color-subtext)] uppercase tracking-wider border-b border-[rgba(245,241,232,0.05)]">
+                      Next in queue
+                    </div>
+                    <div className="divide-y divide-[rgba(255,255,255,0.05)]">
+                      {filteredUserTracks.map(({ track, index, sortableId, isSmartTrack }) => (
+                        <div key={sortableId} data-track-id={track.id}>
+                          <SortableQueueItem
+                            sortableId={sortableId}
+                            track={track}
+                            index={index}
+                            isActive={currentTrack?.id === track.id}
+                            onPlay={() => onPlayFrom(index)}
+                            onRemove={() => onRemove(index)}
+                            isSmartTrack={isSmartTrack}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Smart Queue Controls */}
+                {smartQueueState.isActive && smartTracks.length > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-2 border-y border-[rgba(245,241,232,0.1)]">
+                    <button
+                      onClick={onRefreshSmartTracks}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-[rgba(88,198,177,0.1)] hover:bg-[rgba(88,198,177,0.2)] transition-colors"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Refresh
+                    </button>
+                    <button
+                      onClick={onClearSmartTracks}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-[rgba(248,139,130,0.1)] hover:bg-[rgba(248,139,130,0.2)] transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                      Clear smart tracks
+                    </button>
+                  </div>
+                )}
+
+                {/* Smart Tracks Section */}
+                {filteredSmartTracks.length > 0 && (
+                  <div className="border-b border-[rgba(255,255,255,0.05)]">
+                    <div className="px-3 py-2 text-xs font-semibold text-[var(--color-accent-strong)] uppercase tracking-wider border-b border-[rgba(245,241,232,0.05)] flex items-center gap-2">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Next from: Smart Queue
+                    </div>
+                    <div className="divide-y divide-[rgba(255,255,255,0.05)]">
+                      {filteredSmartTracks.map(({ track, index, sortableId, isSmartTrack }) => (
+                        <div key={sortableId} data-track-id={track.id}>
+                          <SortableQueueItem
+                            sortableId={sortableId}
+                            track={track}
+                            index={index}
+                            isActive={currentTrack?.id === track.id}
+                            onPlay={() => onPlayFrom(index)}
+                            onRemove={() => onRemove(index)}
+                            isSmartTrack={isSmartTrack}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add Smart Tracks Button */}
+                {!smartQueueState.isActive && queuedTracks.length > 0 && onAddSmartTracks && (
+                  <button
+                    onClick={onAddSmartTracks}
+                    className="mx-3 my-2 flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-[rgba(88,198,177,0.1)] hover:bg-[rgba(88,198,177,0.2)] transition-colors"
+                  >
+                    <Sparkles className="h-4 w-4 text-[var(--color-accent-strong)]" />
+                    <span className="text-sm font-medium">Add smart tracks</span>
+                  </button>
+                )}
               </div>
             </SortableContext>
           </DndContext>

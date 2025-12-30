@@ -101,6 +101,8 @@ export default function PlaylistDetailPage() {
     );
     const [first, ...rest] = sortedTracks;
     if (first) {
+      // Clear existing queue before playing to ensure playlist tracks are sequential
+      player.clearQueue();
       player.play(first.track);
       if (rest.length > 0) {
         player.addToQueue(rest.map((t) => t.track));

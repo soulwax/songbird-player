@@ -184,7 +184,7 @@ When `handleTrackEnd()` is called with no remaining tracks in queue:
 
 - Modified: `src/hooks/useAudioPlayer.ts` (pause function + queue clearing logic)
 
-## [0.7.7] - 2025-12-29
+## [0.7.7] - 2025-12-30
 
 ### Fixed
 

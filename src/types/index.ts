@@ -79,6 +79,21 @@ export interface QueueItem {
   addedAt: Date;
 }
 
+// Spotify-style Queue types
+
+export interface QueuedTrack {
+  track: Track;
+  queueSource: 'user' | 'smart';
+  addedAt: Date;
+  queueId: string; // Unique ID for drag-drop stability
+}
+
+export interface SmartQueueState {
+  isActive: boolean;
+  lastRefreshedAt: Date | null;
+  seedTrackId: number | null;
+}
+
 // Playlist types
 
 export type Playlist = {
