@@ -46,7 +46,10 @@
       "Bash(npm run deploy:*)",
       "Bash(npm run dev:next:*)",
       "Bash(pgrep:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(htop:*)",
+      "Bash(ps:*)",
+      "Bash(kill:*)"
     ],
     "deny": [],
     "ask": []

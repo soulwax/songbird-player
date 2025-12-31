@@ -77,7 +77,21 @@ export function loadPersistedQueueState(): QueueState | null {
 
   // Check if it's V2 format (has version field)
   if ('version' in stored && stored.version === 2) {
-    return stored as QueueStateV2;
+    // Convert string dates back to Date objects
+    const v2Data = stored as any;
+    return {
+      ...v2Data,
+      queuedTracks: v2Data.queuedTracks.map((qt: any) => ({
+        ...qt,
+        addedAt: new Date(qt.addedAt),
+      })),
+      smartQueueState: {
+        ...v2Data.smartQueueState,
+        lastRefreshedAt: v2Data.smartQueueState.lastRefreshedAt
+          ? new Date(v2Data.smartQueueState.lastRefreshedAt)
+          : null,
+      },
+    } as QueueStateV2;
   }
 
   // Migrate V1 to V2

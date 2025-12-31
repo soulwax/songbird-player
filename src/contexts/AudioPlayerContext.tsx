@@ -192,8 +192,16 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   // Prepare initial queue state from database for useAudioPlayer (must be before useAudioPlayer call)
   const initialQueueState = session && dbQueueState && dbQueueState.queuedTracks && dbQueueState.queuedTracks.length > 0 ? {
-    queuedTracks: dbQueueState.queuedTracks as QueuedTrack[],
-    smartQueueState: dbQueueState.smartQueueState as SmartQueueState,
+    queuedTracks: dbQueueState.queuedTracks.map((qt: any) => ({
+      ...qt,
+      addedAt: new Date(qt.addedAt), // Convert string to Date
+    })) as QueuedTrack[],
+    smartQueueState: {
+      ...dbQueueState.smartQueueState,
+      lastRefreshedAt: dbQueueState.smartQueueState.lastRefreshedAt
+        ? new Date(dbQueueState.smartQueueState.lastRefreshedAt)
+        : null,
+    } as SmartQueueState,
     history: (dbQueueState.history || []) as Track[],
     isShuffled: dbQueueState.isShuffled ?? false,
     repeatMode: (dbQueueState.repeatMode || "none") as "none" | "one" | "all",
