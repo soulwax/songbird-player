@@ -84,12 +84,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Non-Finite Value Error**: Fixed `TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite`
   - Root cause: When audio duration is `NaN` or `Infinity`, skip functions calculated non-finite values
-  - Solution: Added validation to check for finite values before setting currentTime
-  - Defense in depth: Validation in `seek()`, `skipForward()`, and `skipBackward()`
+  - Solution: Added triple-layer validation to prevent NaN values from reaching seek function
+  - Defense in depth approach:
+    1. Validate `seconds` parameter (fallback to 10 if invalid)
+    2. Validate `currentTime` and `duration` from audio element
+    3. Validate calculated `newTime` before calling seek
+    4. Final validation in `seek()` function itself
   - Locations:
-    - `src/hooks/useAudioPlayer.ts:777-788` - seek() validates time parameter
-    - `src/hooks/useAudioPlayer.ts:1165-1185` - skipForward() validates duration and currentTime
-    - `src/hooks/useAudioPlayer.ts:1187-1206` - skipBackward() validates currentTime
+    - `src/hooks/useAudioPlayer.ts:713-724` - seek() validates time parameter
+    - `src/hooks/useAudioPlayer.ts:1165-1194` - skipForward() triple validation
+    - `src/hooks/useAudioPlayer.ts:1196-1224` - skipBackward() triple validation
 
 ### Technical Details
 
