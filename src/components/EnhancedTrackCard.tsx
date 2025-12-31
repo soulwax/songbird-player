@@ -1,6 +1,7 @@
 // File: src/components/EnhancedTrackCard.tsx
 
 import { useToast } from "@/contexts/ToastContext";
+import { useTrackContextMenu } from "@/contexts/TrackContextMenuContext";
 import { useWebShare } from "@/hooks/useWebShare";
 import { api } from "@/trpc/react";
 import type { Track } from "@/types";
@@ -17,6 +18,7 @@ export interface EnhancedTrackCardProps {
   onPlay: (track: Track) => void;
   onAddToQueue: (track: Track) => void;
   showActions?: boolean;
+  excludePlaylistId?: number; // Optional: for context menu to exclude current playlist
 }
 
 export default function EnhancedTrackCard({
@@ -24,6 +26,7 @@ export default function EnhancedTrackCard({
   onPlay,
   onAddToQueue,
   showActions = true,
+  excludePlaylistId,
 }: EnhancedTrackCardProps) {
   const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false);
   const [isHeartAnimating, setIsHeartAnimating] = useState(false);
@@ -32,6 +35,7 @@ export default function EnhancedTrackCard({
   const { share, isSupported: isShareSupported } = useWebShare();
   const { data: session } = useSession();
   const isAuthenticated = !!session;
+  const { openMenu } = useTrackContextMenu();
 
   const { data: favoriteData } = api.music.isFavorite.useQuery(
     { trackId: track.id },
@@ -108,10 +112,19 @@ export default function EnhancedTrackCard({
     onPlay(track);
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    hapticLight();
+    openMenu(track, e.clientX, e.clientY, excludePlaylistId);
+  };
+
   const coverImage = getCoverImage(track);
 
   return (
-    <div className="card group relative flex items-center gap-4 !overflow-visible p-4 transition-all duration-200 hover:scale-[1.015] hover:shadow-lg md:gap-5 md:p-5">
+    <div
+      className="card group relative flex items-center gap-4 !overflow-visible p-4 transition-all duration-200 hover:scale-[1.015] hover:shadow-lg md:gap-5 md:p-5"
+      onContextMenu={handleContextMenu}
+    >
       <div className="relative flex-shrink-0">
         <Image
           src={coverImage}

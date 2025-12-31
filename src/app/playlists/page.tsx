@@ -5,7 +5,9 @@
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingSpinner";
 import { useToast } from "@/contexts/ToastContext";
+import { usePlaylistContextMenu } from "@/contexts/PlaylistContextMenuContext";
 import { api } from "@/trpc/react";
+import { hapticLight } from "@/utils/haptics";
 import { Music, Plus } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -17,6 +19,7 @@ export default function PlaylistsPage() {
   const { data: session } = useSession();
   const router = useRouter();
   const { showToast } = useToast();
+  const { openMenu } = usePlaylistContextMenu();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
@@ -100,6 +103,11 @@ export default function PlaylistsPage() {
               key={playlist.id}
               href={`/playlists/${playlist.id}`}
               className="surface-panel touch-active group flex h-full flex-col overflow-hidden transition-all hover:-translate-y-1"
+              onContextMenu={(e) => {
+                e.preventDefault();
+                hapticLight();
+                openMenu(playlist, e.clientX, e.clientY);
+              }}
             >
               <div className="relative aspect-square overflow-hidden rounded-xl bg-[linear-gradient(135deg,rgba(244,178,102,0.28),rgba(88,198,177,0.22))]">
                 {playlist.tracks && playlist.tracks.length > 0 ? (

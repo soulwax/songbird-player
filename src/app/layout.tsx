@@ -20,8 +20,12 @@ import SuppressExtensionErrors from "@/components/SuppressExtensionErrors";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { MenuProvider } from "@/contexts/MenuContext";
 import { ToastProvider } from "@/contexts/ToastContext";
+import { TrackContextMenuProvider } from "@/contexts/TrackContextMenuContext";
+import { PlaylistContextMenuProvider } from "@/contexts/PlaylistContextMenuContext";
 import { TRPCReactProvider } from "@/trpc/react";
 import { getBaseUrl } from "@/utils/getBaseUrl";
+import { TrackContextMenu } from "@/components/TrackContextMenu";
+import { PlaylistContextMenu } from "@/components/PlaylistContextMenu";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -93,24 +97,32 @@ export default function RootLayout({
                   {/* Dynamic window title based on playback state */}
                   <DynamicTitle />
                   <MenuProvider>
-                    {/* UI elements that can be hidden on desktop */}
-                    <UIWrapper>
-                      {/* Desktop header (hidden on mobile) */}
-                      <Header />
-                      {/* Mobile header with hamburger and search (hidden on desktop) */}
-                      <MobileHeader />
-                      {/* Hamburger menu drawer */}
-                      <HamburgerMenu />
-                      {/* Mobile content wrapper */}
-                      <MobileContentWrapper>
-                        {/* Main content with padding for mobile header and player */}
-                        <div className="pt-16 pb-24 md:pt-0 md:pb-24">
-                          {children}
-                        </div>
-                      </MobileContentWrapper>
-                    </UIWrapper>
-                    {/* Persistent player - stays on all pages */}
-                    <PersistentPlayer />
+                    <TrackContextMenuProvider>
+                      <PlaylistContextMenuProvider>
+                        {/* UI elements that can be hidden on desktop */}
+                        <UIWrapper>
+                          {/* Desktop header (hidden on mobile) */}
+                          <Header />
+                          {/* Mobile header with hamburger and search (hidden on desktop) */}
+                          <MobileHeader />
+                          {/* Hamburger menu drawer */}
+                          <HamburgerMenu />
+                          {/* Mobile content wrapper */}
+                          <MobileContentWrapper>
+                            {/* Main content with padding for mobile header and player */}
+                            <div className="pt-16 pb-24 md:pt-0 md:pb-24">
+                              {children}
+                            </div>
+                          </MobileContentWrapper>
+                        </UIWrapper>
+                        {/* Persistent player - stays on all pages */}
+                        <PersistentPlayer />
+                        {/* Universal track context menu */}
+                        <TrackContextMenu />
+                        {/* Universal playlist context menu */}
+                        <PlaylistContextMenu />
+                      </PlaylistContextMenuProvider>
+                    </TrackContextMenuProvider>
                   </MenuProvider>
                 </AudioPlayerProvider>
               </ToastProvider>

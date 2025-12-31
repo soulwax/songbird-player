@@ -9,6 +9,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Universal Right-Click Context Menu for Tracks
+
+- **New Feature**: Horizontal context menu that appears on right-click for any track
+  - **Design**: Sleek horizontal toolbar with icon + label for each action
+  - **Positioning**: Smart positioning near cursor, automatically adjusts to stay within viewport
+  - **Actions included**:
+    - Play now
+    - Add to queue
+    - Play next
+    - Favorite/unfavorite (authenticated users)
+    - Add to playlist (authenticated users)
+    - Share (if Web Share API supported)
+    - Go to artist
+    - Go to album
+  - **Features**:
+    - Backdrop dismissal (click outside to close)
+    - Keyboard navigation (Escape to close)
+    - Haptic feedback on mobile
+    - Smooth animations (slide in/fade)
+    - Z-index hierarchy (z-70/z-71, below modals)
+  - **Extensibility**: Easy to add more actions in the future
+  - **Files**:
+    - `src/contexts/TrackContextMenuContext.tsx` - Context provider for menu state (~60 lines)
+    - `src/components/TrackContextMenu.tsx` - Horizontal menu component (~400 lines)
+    - Modified: `src/components/EnhancedTrackCard.tsx` - Added `onContextMenu` handler + `excludePlaylistId` prop
+    - Modified: `src/app/layout.tsx` - Added provider and menu component to root layout
+    - Modified: `src/app/playlists/[id]/page.tsx` - Pass `excludePlaylistId` to track cards
+
+#### Universal Right-Click Context Menu for Playlists
+
+- **New Feature**: Horizontal context menu for playlist cards on `/playlists` page
+  - **Design**: Matches track context menu style - horizontal toolbar with icons and labels
+  - **Positioning**: Smart viewport-aware positioning
+  - **Actions included**:
+    - Play all - Start playing all tracks in the playlist
+    - Add all to queue - Add all tracks to queue
+    - Merge - Combine with another playlist (placeholder for future implementation)
+    - Share - Share playlist URL (only for public playlists)
+    - Edit - Navigate to playlist detail page
+    - Toggle Public/Private - Change playlist visibility
+    - Duplicate - Create a copy of the playlist
+    - Delete - Remove playlist (with confirmation)
+  - **Features**:
+    - Backdrop dismissal (click outside to close)
+    - Keyboard navigation (Escape to close)
+    - Haptic feedback on mobile
+    - Smooth animations (slide in/fade)
+    - Z-index hierarchy (z-70/z-71, same as track menu)
+    - Disabled state for actions that don't apply (e.g., share when private)
+  - **Files**:
+    - `src/contexts/PlaylistContextMenuContext.tsx` - Context provider for menu state (~50 lines)
+    - `src/components/PlaylistContextMenu.tsx` - Horizontal menu component (~470 lines)
+    - Modified: `src/app/layout.tsx` - Added provider and menu component
+    - Modified: `src/app/playlists/page.tsx` - Added `onContextMenu` handler to playlist cards
+
 #### Add to Playlist Modal (Spotify-Style UX)
 
 - **New Modal Component**: Implemented searchable modal for adding tracks to playlists across the entire app
@@ -127,15 +182,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Files Modified:**
 
+- New: `src/contexts/TrackContextMenuContext.tsx` - Context menu state provider
+- New: `src/components/TrackContextMenu.tsx` - Universal context menu component
 - New: `src/components/AddToPlaylistModal.tsx` - Modal component
+- Modified: `src/app/layout.tsx` - Added context menu provider and component
 - Modified: `src/server/api/routers/music.ts` - Backend query
 - Modified: `src/types/index.ts` - Type definitions
-- Modified: `src/components/EnhancedTrackCard.tsx` - Modal integration
+- Modified: `src/components/EnhancedTrackCard.tsx` - Modal integration + context menu handler
 - Modified: `src/components/TrackCard.tsx` - Modal integration
 - Modified: `src/components/SwipeableTrackCard.tsx` - Modal integration
 - Modified: `src/components/Player.tsx` - Desktop player integration
 - Modified: `src/hooks/useAudioPlayer.ts` - Skip button validation
-- Modified: `src/app/playlists/[id]/page.tsx` - Enable actions for playlist owners
+- Modified: `src/app/playlists/[id]/page.tsx` - Enable actions for playlist owners + context menu support
 
 ## [0.8.0] - 2025-12-29
 

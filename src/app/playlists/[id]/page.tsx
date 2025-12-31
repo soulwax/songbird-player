@@ -532,6 +532,7 @@ export default function PlaylistDetailPage() {
                         onPlay={player.play}
                         onAddToQueue={player.addToQueue}
                         showActions={true}
+                        excludePlaylistId={playlistId}
                       />
                     </div>
 
