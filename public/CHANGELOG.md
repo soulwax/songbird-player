@@ -34,6 +34,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+#### Queue State Persistence Override (CRITICAL - 2025-12-31)
+
+- **Immutable Queue Bug**: Fixed catastrophic bug where queue state was completely frozen and unmodifiable
+  - **Symptoms**:
+    - Cannot remove tracks from queue (X button non-functional)
+    - Cannot clear queue (trash button non-functional)
+    - Cannot add new tracks to queue
+    - Next/Previous buttons non-functional
+    - Queue stuck with same tracks indefinitely ("eternal playlist")
+  - **Root Cause**:
+    - `useEffect` in `useAudioPlayer` had `[initialQueueState]` in dependency array (line 214)
+    - `initialQueueState` is computed from `dbQueueState` on EVERY render in AudioPlayerContext
+    - This created an infinite override loop:
+      1. User modifies queue (remove/add track)
+      2. Component re-renders with updated state
+      3. `initialQueueState` recalculated from unchanged database state
+      4. useEffect triggers due to dependency change
+      5. Lines 143-147 reset queue back to database state
+      6. User changes immediately overwritten
+  - **Solution**:
+    - Changed dependency array from `[initialQueueState]` to `[]` (empty)
+    - Added eslint-disable comment with explanation
+    - Queue state now only loads from database **once on mount**
+    - Subsequent state changes persist correctly
+  - **Impact**: CRITICAL - Affected all queue operations for logged-in users
+  - **Location**: `src/hooks/useAudioPlayer.ts:214-215`
+  - **Additional Fixes**:
+    - Fixed date type conversion in database loading (string → Date)
+    - Fixed date type conversion in localStorage loading (string → Date)
+    - Updated server schema to include missing `trackCount` field
+    - Location: `src/contexts/AudioPlayerContext.tsx:195-204`, `src/hooks/useQueuePersistence.ts:80-95`, `src/server/api/routers/music.ts:834`
+
 #### Queue Track Progression (CRITICAL)
 
 - **Queue Stuck on First Track**: Fixed critical bug where queue would not advance past the first song

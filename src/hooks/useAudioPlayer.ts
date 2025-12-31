@@ -211,7 +211,8 @@ export function useAudioPlayer(options: UseAudioPlayerOptions = {}) {
         );
       }
     }
-  }, [initialQueueState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // CRITICAL: Empty array! Only run on mount, not when initialQueueState changes
 
   // Persist volume
   useEffect(() => {
